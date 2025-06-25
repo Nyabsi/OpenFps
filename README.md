@@ -1,4 +1,4 @@
-# OpenFps
+# <img src="https://github.com/Nyabsi/OpenFps/blob/master/resources/icon.png" height="24" width="24"> OpenFps
 
 OpenFps is an performance monitoring and utility tool for OpenVR compatible runtimes for aiding to identify performance issues.
 
@@ -8,15 +8,19 @@ OpenFps is an performance monitoring and utility tool for OpenVR compatible runt
 - Real-time FPS display
 - Reprojected & Dropped frame counter
 - Display device battery percentages
-	- You can use device tracker roles to identify individual devices
-- Customizable
-	- You can select which hand the overlay is displayed in
-	- You can adjust the scale of the overlay window
-	- You can change the overlay mounting position
-
+	- Hint: Assign the approriate tracker roles for your device to identify your trackers
+- Acessibility
+	- Select between Left/Right hand for displaying the overlay
+	- Adjust the scale of the overlay to match your preference
+	- Change the mounting position of the overlay (Above, Wrist, Below)
+- SteamVR Resolution Adjustment
+	- Adjust your SteamVR resolution straight from OpenFps to reduce friction
+ 
 ## Usage
 
-W.I.P
+Head over to [Downloads](https://github.com/Nyabsi/OpenFps/releases) to install the latest version of OpenFps.
+
+To be able to read the graphs efficiently, please look at [Reading the Graph](https://github.com/Nyabsi/OpenFps/wiki/Reading-the-Graph) to understand what the colours imply.
 
 ## Building
 
