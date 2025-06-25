@@ -320,7 +320,7 @@ auto ImGuiOverlayWindow::Draw() -> void
             for (uint64_t i = 0; i < vr::k_unMaxTrackedDeviceCount; i++) {
                 try {
                     auto c_properties = VrTrackedDeviceProperties::FromDeviceIndex(i);
-                    // c_properties.CheckConnection();
+                    c_properties.CheckConnection();
                     int32_t type = c_properties.GetInt32(vr::Prop_DeviceClass_Int32);
 
                     std::string name = {};
