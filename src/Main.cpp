@@ -69,7 +69,11 @@ static auto UpdateApplicationRefreshRate() -> void
         g_ImGuiOverlayWindow->SetFrameTime(g_hmd_refresh_rate);
     }
     catch (std::exception& ex) {
-        printf("%s\n\n", ex.what());
+#ifdef _WIN32
+        char error_message[512] = {};
+        snprintf(error_message, 512, "Failed to update HMD Refresh Rate\nReason: %s\r\n", ex.what());
+        MessageBoxA(NULL, error_message, APP_NAME, MB_OK);
+#endif
         if (g_hmd_refresh_rate == 24.0f)
             std::exit(EXIT_FAILURE);
     }
