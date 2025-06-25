@@ -1,0 +1,15 @@
+[submodule "3rdparty/OpenVR"]
+	path = 3rdparty/OpenVR
+	url = https://github.com/ValveSoftware/openvr.git
+[submodule "3rdparty/ImGui"]
+	path = 3rdparty/ImGui
+	url = https://github.com/ocornut/imgui.git
+[submodule "3rdparty/SDL"]
+	path = 3rdparty/SDL
+	url = https://github.com/libsdl-org/SDL.git
+[submodule "3rdparty/glm"]
+	path = 3rdparty/glm
+	url = https://github.com/g-truc/glm.git
+[submodule "3rdparty/ImPlot"]
+	path = 3rdparty/ImPlot
+	url = https://github.com/epezent/implot.git
