@@ -844,7 +844,7 @@ auto ImGuiOverlayWindow::Draw() -> void
                             color_channel_green_ = (std::clamp<float>(288.1221695283 * std::pow<float>((temperature - 60), -0.0755148492), 0, 255) / 255.0f);
                         }
 
-                        if (temperature <= 66.0f) {
+                        if (temperature >= 66.0f) {
                             color_channel_blue_ = 1.0f; // 255
                         }
                         else {
@@ -857,7 +857,7 @@ auto ImGuiOverlayWindow::Draw() -> void
                         }
 
                         auto gammaCorrect = [](float channel) -> float {
-                            return std::abs(std::pow(channel, 1.0f / 2.4f));
+                            return channel <= 0.04045f ? channel / 12.92f : pow((channel + 0.055f) / 1.055f, 2.4f);
                         };
 
                         float r = gammaCorrect(color_channel_red_);
