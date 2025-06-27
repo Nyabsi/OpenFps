@@ -822,8 +822,8 @@ auto ImGuiOverlayWindow::Draw() -> void
                         if (color_contrast_ < 0.0f)
                             color_contrast_ = 0.0f;
 
-                        if (color_contrast_ > 200.0f)
-                            color_contrast_ = 200.0f;
+                        if (color_contrast_ > 100.0f)
+                            color_contrast_ = 100.0f;
 
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
