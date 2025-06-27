@@ -400,8 +400,13 @@ auto ImGuiOverlayWindow::Draw() -> void
                             tracked_devices_.push_back(device);
                         }
                         else {
-                            if (it != tracked_devices_.end() && c_properties.GetBool(vr::Prop_DeviceProvidesBatteryStatus_Bool)) {
-                                it->battery_percentage = c_properties.GetFloat(vr::Prop_DeviceBatteryPercentage_Float);
+                            if (it != tracked_devices_.end()) {
+                                if (c_properties.GetBool(vr::Prop_DeviceProvidesBatteryStatus_Bool)) {
+                                    it->battery_percentage = c_properties.GetFloat(vr::Prop_DeviceBatteryPercentage_Float);
+                                }
+                                else {
+                                    tracked_devices_.erase(it);
+                                }
                             }
                         }
                     }
