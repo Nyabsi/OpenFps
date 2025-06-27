@@ -6,6 +6,7 @@
 
 #include <math.h>
 #include <implot.h>
+#include <algorithm>
 
 #include "VrUtils.h"
 #include <map>
@@ -36,6 +37,14 @@ ImGuiOverlayWindow::ImGuiOverlayWindow()
     bottleneck_ = false;
     wireless_latency_ = {};
     transform_ = {};
+    color_temparature_ = false;
+    color_channel_red_ = {};
+    color_channel_green_ = {};
+    color_channel_blue_ = {};
+    color_temp_ = {};
+    color_brightness_ = {};
+    color_contrast_ = {};
+    colour_mask_ = {};
 }
 
 auto ImGuiOverlayWindow::Initialize(VulkanRenderer*& renderer, VrOverlay*& overlay, int width, int height) -> void
@@ -137,7 +146,16 @@ auto ImGuiOverlayWindow::Initialize(VulkanRenderer*& renderer, VrOverlay*& overl
     overlay_scale_ = 0.15f; // TODO: settings
     handedness_ = 1; // TODO: settings
     position_ = 0;
+    color_temp_ = 15000;
+    color_brightness_ = 100;
+    color_contrast_ = 100;
+    float color_mask[3] = { 0.0f, 0.0f, 0.0f };
+    colour_mask_ = color_mask;
+
     ss_scale_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_SupersampleScale_Float) * 100;
+    color_channel_red_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainR_Float);
+    color_channel_green_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainG_Float);
+    color_channel_blue_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainB_Float);
 
     this->UpdateDeviceTransform();
 }
@@ -156,7 +174,7 @@ auto ImGuiOverlayWindow::Draw() -> void
 
     ImGui::Begin("OpenFps", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove);
 
-    if (!vr::VROverlay()->IsHoverTargetOverlay(overlay_->Handle()) || !vr::VROverlay()->IsDashboardVisible()) {
+    if ((!vr::VROverlay()->IsHoverTargetOverlay(overlay_->Handle()) && !io.WantTextInput) || !vr::VROverlay()->IsDashboardVisible()) {
 
         vr::Compositor_FrameTiming timings =
         {
@@ -316,6 +334,7 @@ auto ImGuiOverlayWindow::Draw() -> void
         static double last_time = -1.0f;
         static double current_time = ImGui::GetTime();
 
+        // PS. bad.
         if (true) {
             for (uint64_t i = 0; i < vr::k_unMaxTrackedDeviceCount; i++) {
                 try {
@@ -369,19 +388,19 @@ auto ImGuiOverlayWindow::Draw() -> void
 
                     if (name.length() > 0) {
                         auto it = std::find_if(tracked_devices_.begin(), tracked_devices_.end(), [i](const TrackedDevice& a) { return a.device_id == i; });
-                        auto providesBatteryPercentage = c_properties.GetBool(vr::Prop_DeviceProvidesBatteryStatus_Bool);
 
-                        if (it == tracked_devices_.end() && providesBatteryPercentage) {
+                        if (it == tracked_devices_.end() && c_properties.GetBool(vr::Prop_DeviceProvidesBatteryStatus_Bool)) {
                             TrackedDevice device =
                             {
                                 .device_id = i,
                                 .device_label = name,
-                                .battery_percentage = -1.0f,
+                                .battery_percentage = -1.0f
                             };
+
                             tracked_devices_.push_back(device);
                         }
                         else {
-                            if (it != tracked_devices_.end() && providesBatteryPercentage) {
+                            if (it != tracked_devices_.end() && c_properties.GetBool(vr::Prop_DeviceProvidesBatteryStatus_Bool)) {
                                 it->battery_percentage = c_properties.GetFloat(vr::Prop_DeviceBatteryPercentage_Float);
                             }
                         }
@@ -719,27 +738,194 @@ auto ImGuiOverlayWindow::Draw() -> void
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("Resolution")) {
+            if (ImGui::BeginTabItem("Display")) {
                 
                 static float last_ss_scale = -1.0f;
-                ImGui::Checkbox("Enable Resolution Scaling", &ss_scaling_enabled_);
+                static float channel_r = 0.0f;
+                static float channel_g = 0.0f;
+                static float channel_b = 0.0f;
 
-                if (ss_scaling_enabled_) {
-                    ImGui::Text("Current Scale: %.0f%%", ss_scale_);
-                    ImGui::InputFloat("##overlay_scale", &ss_scale_, 10.0f, 0.0f, "%.0f%%");
+                if (ImGui::BeginTable("##display_resolution", 2, ImGuiTableFlags_SizingStretchSame)) {
 
-                    if (ss_scale_ < 10.0f)
-                        ss_scale_ = 10.0f;
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Checkbox("Enable SS Scaling", &ss_scaling_enabled_);
+                    if (ss_scaling_enabled_) {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::Text("Current Scale: %.0f%%", ss_scale_);
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::SameLine();
+                        ImGui::InputFloat("##overlay_scale", &ss_scale_, 10.0f, 0.0f, "%.0f %%");
 
-                    if (ss_scale_ > 500.0f)
-                        ss_scale_ = 500.0f;
+                        if (ss_scale_ < 10.0f)
+                            ss_scale_ = 10.0f;
 
-                    if (last_ss_scale != ss_scale_) {
-                        vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_SupersampleScale_Float, ss_scale_ / 100.0f);
-                        last_ss_scale = ss_scale_;
+                        if (ss_scale_ > 500.0f)
+                            ss_scale_ = 500.0f;
+
+                        if (last_ss_scale != ss_scale_) {
+                            vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_SupersampleScale_Float, ss_scale_ / 100.0f);
+                            last_ss_scale = ss_scale_;
+                        }
                     }
+
+                    ImGui::EndTable();
                 }
 
+                if (ImGui::BeginTable("##display_temparature", 2, ImGuiTableFlags_SizingStretchSame)) {
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Checkbox("Enable Color Grading", &color_temparature_);
+
+                    if (color_temparature_) {
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::Text("Temparature: %.0f K", color_temp_);
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::SameLine();
+                        if (ImGui::InputFloat("##color_temparature", &color_temp_, 1000.0f, 0.0f, "%.0f K")) {
+                            overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
+                        }
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextColored(color_brightness_ > 100.0f ? Color_Red : Color_White, color_brightness_ > 100.0f ? "Brightess (OVERDRIVE): %.0f %%" : "Brightess: %.0f %%", color_brightness_);
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::SameLine();
+                        if (ImGui::InputFloat("##color_temparature_strength", &color_brightness_, 10.0f, 0.0f, "%.0f %%")) {
+                            overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
+                        }
+
+                        if (color_brightness_ < 10.0f)
+                            color_brightness_ = 10.0f;
+
+                        if (color_brightness_ > 200.0f)
+                            color_brightness_ = 200.0f;
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::Text("Contrast: %.0f %%", color_contrast_);
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::SameLine();
+                        if (ImGui::InputFloat("##color_contrast", &color_contrast_, 5.0f, 0.0f, "%.0f %%")) {
+                            overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
+                        }
+
+                        if (color_contrast_ < 0.0f)
+                            color_contrast_ = 0.0f;
+
+                        if (color_contrast_ > 200.0f)
+                            color_contrast_ = 200.0f;
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::Text("Colours: %d, %d, %d", static_cast<int>(colour_mask_[0]), static_cast<int>(colour_mask_[1]), static_cast<int>(colour_mask_[2]));
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::SameLine();
+                        ImGui::ColorEdit3("##colour_overlay", colour_mask_, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoDragDrop);
+
+                        // https://tannerhelland.com/2012/09/18/convert-temperature-rgb-algorithm-code.html
+                        float temperature = std::clamp<float>(color_temp_, 1000.0f, 40000.0f) / 100.0f;
+
+                        if (temperature <= 66.0f) {
+                            color_channel_red_ = 1.0f; // 255
+                        }
+                        else {
+                            color_channel_red_ = (std::clamp<float>(329.698727446 * std::pow<float>((temperature - 60), -0.1332047592), 0, 255) / 255.0f);
+                        }
+
+                        if (temperature <= 66.0f) {
+                            color_channel_green_ = (std::clamp<float>(99.4708025861 * std::logf(temperature) - 161.1195681661, 0, 255) / 255.0f);
+                        }
+                        else {
+                            color_channel_green_ = (std::clamp<float>(288.1221695283 * std::pow<float>((temperature - 60), -0.0755148492), 0, 255) / 255.0f);
+                        }
+
+                        if (temperature <= 66.0f) {
+                            color_channel_blue_ = 1.0f; // 255
+                        }
+                        else {
+                            if (temperature <= 19.0f) {
+                                color_channel_blue_ = 0.0f;
+                            }
+                            else {
+                                color_channel_blue_ = (std::clamp<float>(138.5177312231 * std::logf(temperature - 10) - 305.0447927307, 0, 255) / 255.0f);
+                            }
+                        }
+
+                        auto gammaCorrect = [](float channel) -> float {
+                            return std::abs(std::pow(channel, 1.0f / 2.4f));
+                        };
+
+                        float r = gammaCorrect(color_channel_red_);
+                        float g = gammaCorrect(color_channel_green_);
+                        float b = gammaCorrect(color_channel_blue_);
+
+                        auto applyContrast = [](float channel, float contrast) -> float {
+                            return (channel - 0.5f) * contrast + 0.5f;
+                        };
+
+                        r = applyContrast(r, color_contrast_ / 100.0f);
+                        g = applyContrast(g, color_contrast_ / 100.0f);
+                        b = applyContrast(b, color_contrast_ / 100.0f);
+
+                        if (colour_mask_[0] > 0.0f || colour_mask_[1] > 0.0f || colour_mask_[2] > 0.0f) {
+                            float original_luminance = 0.2126f * r + 0.7152f * g + 0.0722f * b;
+
+                            r *= colour_mask_[0];
+                            g *= colour_mask_[1];
+                            b *= colour_mask_[2];
+
+                            float tinted_luminance = 0.2126f * r + 0.7152f * g + 0.0722f * b;
+                            if (tinted_luminance > 0.0f) {
+                                float brightness_correction = original_luminance / tinted_luminance;
+                                r *= brightness_correction;
+                                g *= brightness_correction;
+                                b *= brightness_correction;
+                            }
+                        }
+
+                        float brightness_factor = (color_brightness_ / 100.0f);
+
+                        auto toneMap = [](float c, float brightness_factor) -> float {
+                            float boosted = c * brightness_factor;
+                            return boosted / (1.0f + (boosted - 1.0f) * 0.5f);
+                        };
+
+                        r = toneMap(r, brightness_factor);
+                        g = toneMap(g, brightness_factor);
+                        b = toneMap(b, brightness_factor);
+
+                        color_channel_red_ = r;
+                        color_channel_green_ = g;
+                        color_channel_blue_ = b;
+
+                        if (channel_r != color_channel_red_ || channel_g != color_channel_green_ || channel_b != color_channel_blue_) {
+                            vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainR_Float, color_channel_red_);
+                            vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainG_Float, color_channel_green_);
+                            vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainB_Float, color_channel_blue_);
+                            channel_r = color_channel_red_;
+                            channel_g = color_channel_green_;
+                            channel_b = color_channel_blue_;
+                        }
+                    }
+                    else {
+                        if (channel_r != 0.0f || channel_g != 0.0f || channel_b != 0.0f) {
+                            vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainR_Float, 1.0f);
+                            vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainG_Float, 1.0f);
+                            vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainB_Float, 1.0f);
+                            channel_r = 0.0f;
+                            channel_g = 0.0f;
+                            channel_b = 0.0f;
+                        }
+                    }
+
+                    ImGui::EndTable();
+                }
+                
                 ImGui::EndTabItem();
             }
 

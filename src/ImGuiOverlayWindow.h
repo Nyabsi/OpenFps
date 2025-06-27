@@ -42,7 +42,7 @@ struct alignas(8) FrameTimeInfo
 };
 
 struct TrackedDevice {
-    uint64_t device_id = { 0 };
+    uint64_t device_id = {};
     std::string device_label = {};
     float battery_percentage = {};
 };
@@ -102,4 +102,12 @@ private:
     bool bottleneck_;
     float wireless_latency_;
     OverlayTransform transform_;
+    bool color_temparature_;
+    float color_channel_red_;
+    float color_channel_green_;
+    float color_channel_blue_;
+    float color_temp_;
+    float color_brightness_;
+    float color_contrast_;
+    float* colour_mask_;
 };
