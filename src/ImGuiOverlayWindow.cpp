@@ -849,7 +849,7 @@ auto ImGuiOverlayWindow::Draw() -> void
                         }
                         else {
                             if (temperature <= 19.0f) {
-                                color_channel_blue_ = 0.0f;
+                                color_channel_blue_ = 0.01f;
                             }
                             else {
                                 color_channel_blue_ = (std::clamp<float>(138.5177312231 * std::logf(temperature - 10) - 305.0447927307, 0, 255) / 255.0f);
@@ -857,7 +857,7 @@ auto ImGuiOverlayWindow::Draw() -> void
                         }
 
                         auto gammaCorrect = [](float channel) -> float {
-                            return channel <= 0.04045f ? channel / 12.92f : pow((channel + 0.055f) / 1.055f, 2.4f);
+                            return std::abs(channel <= 0.04045f ? channel / 12.92f : pow((channel + 0.055f) / 1.055f, 2.4f));
                         };
 
                         float r = gammaCorrect(color_channel_red_);
@@ -903,7 +903,7 @@ auto ImGuiOverlayWindow::Draw() -> void
                         color_channel_green_ = g;
                         color_channel_blue_ = b;
 
-                        if (channel_r != color_channel_red_ || channel_g != color_channel_green_ || channel_b != color_channel_blue_) {
+                        if ((channel_r != color_channel_red_ || channel_g != color_channel_green_ || channel_b != color_channel_blue_)) {
                             vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainR_Float, color_channel_red_);
                             vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainG_Float, color_channel_green_);
                             vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainB_Float, color_channel_blue_);
