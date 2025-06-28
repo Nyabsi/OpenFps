@@ -797,7 +797,7 @@ auto ImGuiOverlayWindow::Draw() -> void
 
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
-                        ImGui::TextColored(color_brightness_ > 100.0f ? Color_Red : Color_White, color_brightness_ > 100.0f ? "Brightess (OVERDRIVE): %.0f %%" : "Brightess: %.0f %%", color_brightness_);
+                        ImGui::Text("Brightess: %.0f %%", color_brightness_);
                         ImGui::TableSetColumnIndex(1);
                         ImGui::SameLine();
                         if (ImGui::InputFloat("##color_temparature_strength", &color_brightness_, 10.0f, 0.0f, "%.0f %%")) {
