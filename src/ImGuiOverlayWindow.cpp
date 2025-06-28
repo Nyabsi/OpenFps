@@ -149,8 +149,7 @@ auto ImGuiOverlayWindow::Initialize(VulkanRenderer*& renderer, VrOverlay*& overl
     color_temp_ = 15000;
     color_brightness_ = 100;
     color_contrast_ = 100;
-    float color_mask[3] = { 0.0f, 0.0f, 0.0f };
-    colour_mask_ = color_mask;
+    colour_mask_ = (float*)malloc(sizeof(float) * 3);
 
     ss_scale_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_SupersampleScale_Float) * 100;
     color_channel_red_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainR_Float);
@@ -945,6 +944,8 @@ auto ImGuiOverlayWindow::Draw() -> void
 
 auto ImGuiOverlayWindow::Destroy() -> void
 {
+    free(colour_mask_);
+
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplOpenVR_Shutdown();
     ImGui::DestroyContext();
