@@ -143,13 +143,8 @@ int main(
         return EXIT_FAILURE;
     }
 
-    // How do you close it? You don't. *Yet*
     if (!vr::VRApplications()->GetApplicationAutoLaunch(APP_KEY))
     {
-        vr::VRApplications()->SetApplicationAutoLaunch(APP_KEY, true);
-    }
-    else {
-        // new path
         vr::VRApplications()->SetApplicationAutoLaunch(APP_KEY, false);
         vr::VRApplications()->SetApplicationAutoLaunch(APP_KEY, true);
     }
