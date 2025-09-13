@@ -58,7 +58,7 @@ static glm::quat g_rotation = {};
 #define APP_KEY     "Nyabsi.OpenFps"
 #define APP_NAME    "OpenFps"
 
-#define WIN_WIDTH   520
+#define WIN_WIDTH   500
 #define WIN_HEIGHT  340
 
 static auto UpdateApplicationRefreshRate() -> void

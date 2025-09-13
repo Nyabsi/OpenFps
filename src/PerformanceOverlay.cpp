@@ -147,12 +147,16 @@ auto PerformanceOverlay::Initialize(VulkanRenderer*& renderer, VrOverlay*& overl
 
     vram_monitor_->Initialize();
 
-    display_mode_ = Overlay_DisplayMode_Dashboard; // TODO: settings
-    overlay_scale_ = 0.15f; // TODO: settings
-    handedness_ = 1; // TODO: settings
-    position_ = 0;
-    color_temp_ = 15000;
-    color_brightness_ = 100;
+	settings_.Load();
+
+	display_mode_ = static_cast<Overlay_DisplayMode>(settings_.DisplayMode());
+	overlay_scale_ = settings_.OverlayScale();
+	handedness_ = settings_.Handedness();
+	position_ = settings_.Position();
+	ss_scaling_enabled_ = settings_.SsScalingEnabled();
+	color_temperature_ = settings_.PostProcessingEnabled();
+	color_temp_ = settings_.ColorTemperature();
+	color_brightness_ = settings_.ColorBrightness();
 
     colour_mask_ = (float*)malloc(sizeof(float) * 3);
 #pragma warning( push )
@@ -206,7 +210,7 @@ auto PerformanceOverlay::Draw() -> void
         ImGui::Spacing();
 
         auto avail = ImGui::GetContentRegionAvail();
-        auto childSize = ImVec2((avail.x / 2) - style.FramePadding.x, (avail.y / 2.5) - style.FramePadding.y);
+        auto childSize = ImVec2((avail.x / 2) - style.FramePadding.x, (avail.y / 3) - style.FramePadding.y);
 
         if (ImGui::BeginChild("##metrics_info", childSize, ImGuiChildFlags_None)) {
             if (ImGui::BeginTable("##cpu_frametime", 2, ImGuiTableFlags_SizingStretchProp)) {
@@ -462,11 +466,13 @@ auto PerformanceOverlay::Draw() -> void
                     if (ImGui::Button("Dashboard")) {
                         overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
                         display_mode_ = Overlay_DisplayMode_Dashboard;
+						settings_.SetDisplayMode(display_mode_);
                     }
                     ImGui::SameLine();
                     if (ImGui::Button("Always")) {
                         overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
                         display_mode_ = Overlay_DisplayMode_Always;
+						settings_.SetDisplayMode(display_mode_);
                     }
 
                     ImGui::TableNextRow();
@@ -476,6 +482,7 @@ auto PerformanceOverlay::Draw() -> void
                     ImGui::SameLine();
                     if (ImGui::InputFloat("##overlay_scale", &overlay_scale_, 0.05f, 0.0f, "%.2f")) {
                         overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
+						settings_.SetOverlayScale(overlay_scale_);
                     }
 
                     // Scale safe boundaries
@@ -501,6 +508,8 @@ auto PerformanceOverlay::Draw() -> void
                                 selected_handedness = i;
                                 overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
                                 handedness_ = selected_handedness + 1;
+                                this->UpdateDeviceTransform();
+								settings_.SetHandedness(handedness_);
                             }
                         }
                         ImGui::EndCombo();
@@ -523,6 +532,7 @@ auto PerformanceOverlay::Draw() -> void
                                 overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
                                 this->UpdateDeviceTransform();
                                 selected_position = i;
+								settings_.SetPosition(position_);
                             }
                         }
                         ImGui::EndCombo();
@@ -545,7 +555,7 @@ auto PerformanceOverlay::Draw() -> void
 
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::Checkbox("Enable SS Scaling", &ss_scaling_enabled_);
+                    bool enabled = ImGui::Checkbox("Enable SS Scaling", &ss_scaling_enabled_);
                     if (ss_scaling_enabled_) {
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
@@ -563,8 +573,13 @@ auto PerformanceOverlay::Draw() -> void
                         if (last_ss_scale != ss_scale_) {
                             vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_SupersampleScale_Float, ss_scale_ / 100.0f);
                             last_ss_scale = ss_scale_;
+							overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
                         }
                     }
+
+					if (enabled != ss_scaling_enabled_) {
+						settings_.SetSsScalingEnabled(ss_scaling_enabled_);
+					}
 
                     ImGui::EndTable();
                 }

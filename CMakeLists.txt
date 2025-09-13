@@ -24,6 +24,7 @@ set(ENABLE_VULKAN_VALIDATION OFF)
 
 set(OpenVR_ROOT ${CMAKE_SOURCE_DIR}/3rdparty/OpenVR)
 set(GLM_ROOT ${CMAKE_SOURCE_DIR}/3rdparty/glm)
+set(Json_ROOT ${CMAKE_SOURCE_DIR}/3rdparty/json)
 
 find_package(OpenVR REQUIRED)
 
@@ -34,6 +35,8 @@ add_subdirectory(${GLM_ROOT})
 # Include rest of the CMake bindings
 add_subdirectory(3rdparty)
 
+add_subdirectory(${Json_ROOT} EXCLUDE_FROM_ALL)
+
 message(STATUS "ENABLE_VULKAN_VALIDATION = ${ENABLE_VULKAN_VALIDATION}")
 
 add_executable(openfps
@@ -41,6 +44,7 @@ add_executable(openfps
     "src/VulkanRenderer.cpp"
     "src/PerformanceOverlay.cpp"
     "src/VRAMMonitor.cpp"
+    "src/Settings.cpp"
 )
 
 # Windows executable icon
@@ -55,6 +59,7 @@ target_link_libraries(openfps
         OpenVR::API
         ImGui
         glm::glm
+        nlohmann_json::nlohmann_json
 )
 
 if (ENABLE_VULKAN_VALIDATION)

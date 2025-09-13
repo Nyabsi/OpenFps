@@ -7,6 +7,7 @@
 #include "VulkanRenderer.h"
 #include "VrOverlay.h"
 #include "VRAMMonitor.hpp"
+#include "Settings.hpp"
 
 #define IMGUI_NORMALIZED_RGBA(r, g, b, a) ImVec4(((r) / 255.0f), ((g) / 255.0f), ((b) / 255.0f), ((a) / 255.0f))
 
@@ -48,7 +49,7 @@ struct TrackedDevice {
     float battery_percentage = {};
 };
 
-enum Overlay_DisplayMode {
+enum Overlay_DisplayMode : uint8_t {
     Overlay_DisplayMode_None = 0, /* Not a valid mode, don't try, thanks. */
     Overlay_DisplayMode_Always = 1,
     Overlay_DisplayMode_Dashboard = 2,
@@ -63,6 +64,7 @@ class PerformanceOverlay
 {
 public:
     explicit PerformanceOverlay();
+	~PerformanceOverlay();
     auto Initialize(VulkanRenderer*& renderer, VrOverlay*& overlay, int width, int height) -> void;
 
     [[nodiscard]] auto OverlayData() -> Vulkan_Overlay* { return reinterpret_cast<Vulkan_Overlay*>(&overlay_data_); };
@@ -80,6 +82,7 @@ private:
     auto UpdateDeviceTransform() -> void;
 
 	VRAMMonitor* vram_monitor_;
+    Settings settings_;
 
     float frame_time_;
     float refresh_rate_;
