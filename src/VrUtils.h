@@ -32,6 +32,36 @@ static auto OpenVRManifestInstalled2(const char* appKey) -> bool
     // return vr::VRApplications()->Start(appKey);
 }
 
+static auto TrackerPropStringToString(const std::string& name_unformatted)
+{
+    if (name_unformatted.contains("vive_tracker_left_foot"))
+        return "Left Foot";
+    else if (name_unformatted.contains("vive_tracker_right_foot"))
+        return "Right Foot";
+    else if (name_unformatted.contains("vive_tracker_left_shoulder"))
+        return "Left Shoulder";
+    else if (name_unformatted.contains("vive_tracker_right_shoulder"))
+        return "Right Shoulder";
+    else if (name_unformatted.contains("vive_tracker_left_elbow"))
+        return "Left Elbow";
+    else if (name_unformatted.contains("vive_tracker_right_elbow"))
+        return "Right Elbow";
+    else if (name_unformatted.contains("vive_tracker_left_knee"))
+        return "Left Knee";
+    else if (name_unformatted.contains("vive_tracker_right_knee"))
+        return "Right Knee";
+    else if (name_unformatted.contains("vive_tracker_waist"))
+        return "Waist";
+    else if (name_unformatted.contains("vive_tracker_chest"))
+        return "Chest";
+    else if (name_unformatted.contains("vive_tracker_camera"))
+        return "Camera";
+    else if (name_unformatted.contains("vive_tracker_keyboard"))
+        return "Keyboard";
+    else if (name_unformatted.contains("vive_tracker_handed"))
+        return "Handed Tracker";
+    return "Generic Tracker";
+}
 
 static auto OpenVRManifestInstall() -> void 
 {

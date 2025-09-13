@@ -58,10 +58,10 @@ struct OverlayTransform {
     glm::quat rotation = {};
 };
 
-class ImGuiOverlayWindow
+class PerformanceOverlay
 {
 public:
-    explicit ImGuiOverlayWindow();
+    explicit PerformanceOverlay();
     auto Initialize(VulkanRenderer*& renderer, VrOverlay*& overlay, int width, int height) -> void;
 
     [[nodiscard]] auto OverlayData() -> Vulkan_Overlay* { return reinterpret_cast<Vulkan_Overlay*>(&overlay_data_); };
@@ -71,43 +71,47 @@ public:
     [[nodiscard]] auto Transform() const -> OverlayTransform { return transform_; }
 
     auto Draw() -> void;
+    auto Update() -> void;
     auto Destroy() -> void;
 
     auto SetFrameTime(float refresh_rate) -> void;
 private:
     auto UpdateDeviceTransform() -> void;
 
-    Vulkan_Overlay overlay_data_;
     float frame_time_;
     float refresh_rate_;
+
     VrOverlay* overlay_;
-    std::vector<FrameTimeInfo> cpu_frametimes_;
-    std::vector<FrameTimeInfo> gpu_frametimes_;
-    std::vector<TrackedDevice> tracked_devices_;
+    Vulkan_Overlay overlay_data_;
     Overlay_DisplayMode display_mode_;
+    OverlayTransform transform_;
+
     float overlay_scale_;
     int handedness_;
     int position_;
     bool ss_scaling_enabled_;
     float ss_scale_;
+
     uint32_t total_dropped_frames_;
     uint32_t total_predicted_frames_;
     uint32_t total_missed_frames_;
     uint32_t total_frames_;
-    float cpu_frametime_ms_;
-    float gpu_frametime_ms_;
+    float cpu_frame_time_ms_;
+    float gpu_frame_time_ms_;
     float current_fps_;
     uint8_t frame_index_;   // no HMD is >=255 (Refresh Rate) this is an safe assumption for sake of performance.
     uint32_t bottleneck_flags_;
     bool bottleneck_;
     float wireless_latency_;
-    OverlayTransform transform_;
-    bool color_temparature_;
+    std::vector<FrameTimeInfo> cpu_frame_times_;
+    std::vector<FrameTimeInfo> gpu_frame_times_;
+    std::vector<TrackedDevice> tracked_devices_;
+
+    bool color_temperature_;
     float color_channel_red_;
     float color_channel_green_;
     float color_channel_blue_;
     float color_temp_;
     float color_brightness_;
-    float color_contrast_;
     float* colour_mask_;
 };

@@ -39,7 +39,7 @@ message(STATUS "ENABLE_VULKAN_VALIDATION = ${ENABLE_VULKAN_VALIDATION}")
 add_executable(openfps
     "src/Main.cpp"
     "src/VulkanRenderer.cpp"
-    "src/ImGuiOverlayWindow.cpp"
+    "src/PerformanceOverlay.cpp"
 )
 
 # Windows executable icon

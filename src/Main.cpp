@@ -29,7 +29,7 @@
 #include "VulkanRenderer.h"
 #include "VulkanUtils.h"
 
-#include "ImGuiOverlayWindow.h"
+#include "PerformanceOverlay.h"
 
 #include "VrOverlay.h"
 #include "VrUtils.h"
@@ -42,7 +42,7 @@ extern "C" __declspec(dllexport) unsigned long AmdPowerXpressRequestHighPerforma
 #endif
 
 static VulkanRenderer* g_vulkanRenderer = new VulkanRenderer();
-static ImGuiOverlayWindow* g_ImGuiOverlayWindow = new ImGuiOverlayWindow();
+static PerformanceOverlay* g_performanceOverlay = new PerformanceOverlay();
 static VrOverlay* g_overlay = new VrOverlay();
 
 static uint64_t g_last_frame_time = SDL_GetTicksNS();
@@ -50,6 +50,7 @@ static float g_hmd_refresh_rate = 24.0f;
 static bool g_ticking = true;
 static bool g_keyboard_global_show = false;
 static float g_overlay_width = -1.0f;
+
 static vr::ETrackedControllerRole g_overlay_handedness = vr::TrackedControllerRole_Invalid;
 static glm::vec3 g_position = {};
 static glm::quat g_rotation = {};
@@ -66,7 +67,7 @@ static auto UpdateApplicationRefreshRate() -> void
         auto hmd_properties = VrTrackedDeviceProperties::FromDeviceIndex(vr::k_unTrackedDeviceIndex_Hmd);
         hmd_properties.CheckConnection();
         g_hmd_refresh_rate = hmd_properties.GetFloat(vr::Prop_DisplayFrequency_Float);
-        g_ImGuiOverlayWindow->SetFrameTime(g_hmd_refresh_rate);
+        g_performanceOverlay->SetFrameTime(g_hmd_refresh_rate);
     }
     catch (std::exception& ex) {
 #ifdef _WIN32
@@ -127,7 +128,7 @@ int main(
     }
 
     g_vulkanRenderer->Initialize();
-    g_ImGuiOverlayWindow->Initialize(g_vulkanRenderer, g_overlay, WIN_WIDTH, WIN_HEIGHT);
+    g_performanceOverlay->Initialize(g_vulkanRenderer, g_overlay, WIN_WIDTH, WIN_HEIGHT);
 
     try {
         if (!OpenVRManifestInstalled(APP_KEY)) OpenVRManifestInstall();
@@ -155,6 +156,9 @@ int main(
 
     // allow our application to override some settings.
     vr::VRSettings()->SetInt32(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_SupersampleManualOverride_Bool, true);
+    vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainR_Float, 1.0f);
+    vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainG_Float, 1.0f);
+    vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainB_Float, 1.0f);
 
     SDL_Event event = {};
     vr::VREvent_t vr_event = {};
@@ -191,20 +195,20 @@ int main(
             }
         }
 
-        if (g_overlay->IsVisible() && !vr::VROverlay()->IsDashboardVisible() && g_ImGuiOverlayWindow->DisplayMode() == Overlay_DisplayMode_Dashboard)
+        if (g_overlay->IsVisible() && !vr::VROverlay()->IsDashboardVisible() && g_performanceOverlay->DisplayMode() == Overlay_DisplayMode_Dashboard)
             g_overlay->Hide();
 
         if (g_overlay->IsVisible() && vr::VROverlay()->IsDashboardVisible() && g_keyboard_global_show)
             g_overlay->Hide();
 
-        if (!g_overlay->IsVisible() && (g_ImGuiOverlayWindow->DisplayMode() == Overlay_DisplayMode_Always || (g_ImGuiOverlayWindow->DisplayMode() == Overlay_DisplayMode_Dashboard && vr::VROverlay()->IsDashboardVisible())) && !g_keyboard_global_show)
+        if (!g_overlay->IsVisible() && (g_performanceOverlay->DisplayMode() == Overlay_DisplayMode_Always || (g_performanceOverlay->DisplayMode() == Overlay_DisplayMode_Dashboard && vr::VROverlay()->IsDashboardVisible())) && !g_keyboard_global_show)
             g_overlay->Show();
 
-        const auto handedness = static_cast<vr::ETrackedControllerRole>(g_ImGuiOverlayWindow->Handedness());
-        const auto scale = g_ImGuiOverlayWindow->OverlayScale();
+        const auto handedness = static_cast<vr::ETrackedControllerRole>(g_performanceOverlay->Handedness());
+        const auto scale = g_performanceOverlay->OverlayScale();
 
         // Device relative offset
-        const auto transform = g_ImGuiOverlayWindow->Transform();
+        const auto transform = g_performanceOverlay->Transform();
         glm::vec3 position = transform.position;
         glm::quat rotation = transform.rotation;
 
@@ -213,16 +217,17 @@ int main(
             g_overlay_width = scale;
         }
 
-        if (g_overlay_handedness != handedness || (g_position != position && g_rotation != rotation)) {
+        if (g_overlay_handedness != handedness || (g_position != position && g_rotation != rotation) && vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(handedness) != vr::k_unTrackedDeviceIndexInvalid) {
             g_overlay->SetTransformDeviceRelative(handedness, position, rotation);
             g_overlay_handedness = handedness;
             g_position = position;
             g_rotation = rotation;
         }
 
-        g_ImGuiOverlayWindow->Draw();
+        g_performanceOverlay->Update();
+        g_performanceOverlay->Draw();
 
-        if ((g_ImGuiOverlayWindow->DisplayMode() == Overlay_DisplayMode_Always || (g_ImGuiOverlayWindow->DisplayMode() == Overlay_DisplayMode_Dashboard && vr::VROverlay()->IsDashboardVisible())) && !g_keyboard_global_show) {
+        if ((g_performanceOverlay->DisplayMode() == Overlay_DisplayMode_Always || (g_performanceOverlay->DisplayMode() == Overlay_DisplayMode_Dashboard && vr::VROverlay()->IsDashboardVisible())) && !g_keyboard_global_show) {
             ImDrawData* draw_data = ImGui::GetDrawData();
             g_vulkanRenderer->RenderOverlay(draw_data, g_overlay);
         }
@@ -241,7 +246,7 @@ int main(
     VkResult vk_result = vkDeviceWaitIdle(g_vulkanRenderer->Device());
     VK_VALIDATE_RESULT(vk_result);
 
-    g_ImGuiOverlayWindow->Destroy();
+    g_performanceOverlay->Destroy();
     g_vulkanRenderer->Destroy();
 
     SDL_Quit();
