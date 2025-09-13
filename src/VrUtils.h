@@ -32,6 +32,10 @@ static auto OpenVRManifestInstalled2(const char* appKey) -> bool
     // return vr::VRApplications()->Start(appKey);
 }
 
+static auto GetCurrentGamePid() -> uint64_t {
+	return vr::VRApplications()->GetCurrentSceneProcessId();
+}
+
 static auto TrackerPropStringToString(const std::string& name_unformatted)
 {
     if (name_unformatted.contains("vive_tracker_left_foot"))

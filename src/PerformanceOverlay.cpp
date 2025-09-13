@@ -14,6 +14,7 @@
 
 PerformanceOverlay::PerformanceOverlay()
 {
+	vram_monitor_ = nullptr;
     frame_time_ = {};
     refresh_rate_ = {};
     overlay_ = nullptr;
@@ -49,6 +50,7 @@ PerformanceOverlay::PerformanceOverlay()
 
 auto PerformanceOverlay::Initialize(VulkanRenderer*& renderer, VrOverlay*& overlay, int width, int height) -> void
 {
+	vram_monitor_ = new VRAMMonitor();
     overlay_ = overlay;
 
     IMGUI_CHECKVERSION();
@@ -143,6 +145,8 @@ auto PerformanceOverlay::Initialize(VulkanRenderer*& renderer, VrOverlay*& overl
     memset(cpu_frame_times_.data(), 0x0, cpu_frame_times_.size() * sizeof(FrameTimeInfo));
     memset(gpu_frame_times_.data(), 0x0, cpu_frame_times_.size() * sizeof(FrameTimeInfo));
 
+    vram_monitor_->Initialize();
+
     display_mode_ = Overlay_DisplayMode_Dashboard; // TODO: settings
     overlay_scale_ = 0.15f; // TODO: settings
     handedness_ = 1; // TODO: settings
@@ -186,9 +190,23 @@ auto PerformanceOverlay::Draw() -> void
 
         ImGuiStyle& style = ImGui::GetStyle();
 
+        VRAMInfo vram_info = {};
+		ProcessVRAMInfo process_vram_info = {};
+
+        auto pid = GetCurrentGamePid();
+        if (pid > 0) {
+			process_vram_info = vram_monitor_->GetByPid(pid);
+            vram_info = vram_monitor_->GetUsageByGpuIndex(process_vram_info.gpu_index);
+            ImGui::Text("Current Application: %s (%d)", process_vram_info.process_name.c_str(), pid);
+        }
+        else {
+			ImGui::Text("Current Application: N/A");
+        }
+
+        ImGui::Spacing();
+
         auto avail = ImGui::GetContentRegionAvail();
         auto childSize = ImVec2((avail.x / 2) - style.FramePadding.x, (avail.y / 2.5) - style.FramePadding.y);
-
 
         if (ImGui::BeginChild("##metrics_info", childSize, ImGuiChildFlags_None)) {
             if (ImGui::BeginTable("##cpu_frametime", 2, ImGuiTableFlags_SizingStretchProp)) {
@@ -332,6 +350,13 @@ auto PerformanceOverlay::Draw() -> void
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%d Frames", total_frames_);
 
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("D-VRAM Usage");
+                ImGui::TableSetColumnIndex(1);
+
+                ImGui::Text("%.0f MB / %.0f MB", static_cast<float>(process_vram_info.dedicated_usage) / (1000.0f * 1000.0f), static_cast<float>(vram_info.dedicated_available) / (1024.0f * 1024.0f));
+
                 ImGui::EndTable();
             }
 
@@ -344,7 +369,7 @@ auto PerformanceOverlay::Draw() -> void
 
 
 
-            if (ImGui::BeginTable("##metrics_extra2", 2, ImGuiTableFlags_SizingStretchProp)) {
+            if (ImGui::BeginTable("##metrics_extra3", 2, ImGuiTableFlags_SizingStretchProp)) {
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("Dropped");
@@ -365,6 +390,13 @@ auto PerformanceOverlay::Draw() -> void
                     ImGui::TextColored(Color_LightBlue, "%.1f ms", wireless_latency_);
                 else
                     ImGui::TextColored(Color_Magenta, "N/A");
+
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("S-VRAM Usage");
+                ImGui::TableSetColumnIndex(1);
+
+                ImGui::Text("%.0f MB / %.0f MB", static_cast<float>(process_vram_info.shared_usage) / (1000.0f * 1000.0f), static_cast<float>(vram_info.shared_available) / (1024.0f * 1024.0f));
 
                 ImGui::EndTable();
             }
@@ -681,6 +713,8 @@ auto PerformanceOverlay::Draw() -> void
 
 auto PerformanceOverlay::Update() -> void
 {
+	vram_monitor_->Update();
+
     vr::Compositor_FrameTiming timings =
     {
         .m_nSize = sizeof(vr::Compositor_FrameTiming)
@@ -760,15 +794,13 @@ auto PerformanceOverlay::Update() -> void
         total_missed_frames_ += timings.m_nNumMisPresented;
         total_predicted_frames_ += predicted_frames;
         total_dropped_frames_ += timings.m_nNumDroppedFrames;
-
-        if (timings.m_nNumFramePresents == 1)
-            total_frames_ += timings.m_nNumFramePresents;
+        total_frames_ += timings.m_nNumFramePresents;
 
         if (timings.m_flTransferLatencyMs > 0.0f) {
             wireless_latency_ = timings.m_flTransferLatencyMs;
         }
         else if (timings.m_flCompositorIdleCpuMs >= 1.0f) {
-            wireless_latency_ = std::roundf(timings.m_flCompositorIdleCpuMs);
+            wireless_latency_ = timings.m_flCompositorIdleCpuMs;
         }
         else {
             wireless_latency_ = 0.0f;
@@ -780,7 +812,7 @@ auto PerformanceOverlay::Update() -> void
         if (bottleneck_flags_ & BottleneckSource_Flags_GPU)
             effective_frametime_ms = frame_time_ * 2.0f;
         else
-            effective_frametime_ms = std::max(frame_time_, gpu_frame_time_ms_);
+            effective_frametime_ms = max(frame_time_, gpu_frame_time_ms_);
 
         current_fps_ = (effective_frametime_ms > 0.0f) ? 1000.0f / effective_frametime_ms : 0.0f;
 

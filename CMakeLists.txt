@@ -40,6 +40,7 @@ add_executable(openfps
     "src/Main.cpp"
     "src/VulkanRenderer.cpp"
     "src/PerformanceOverlay.cpp"
+    "src/VRAMMonitor.cpp"
 )
 
 # Windows executable icon

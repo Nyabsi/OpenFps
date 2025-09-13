@@ -6,6 +6,7 @@
 
 #include "VulkanRenderer.h"
 #include "VrOverlay.h"
+#include "VRAMMonitor.hpp"
 
 #define IMGUI_NORMALIZED_RGBA(r, g, b, a) ImVec4(((r) / 255.0f), ((g) / 255.0f), ((b) / 255.0f), ((a) / 255.0f))
 
@@ -77,6 +78,8 @@ public:
     auto SetFrameTime(float refresh_rate) -> void;
 private:
     auto UpdateDeviceTransform() -> void;
+
+	VRAMMonitor* vram_monitor_;
 
     float frame_time_;
     float refresh_rate_;

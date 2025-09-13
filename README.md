@@ -9,6 +9,7 @@ OpenFps is an performance monitoring and utility tool for OpenVR compatible runt
 - CPU & GPU frametime metrics
 - Real-time FPS display
 - Reprojected & Dropped frame counter
+- VRAM monitoring (Dedicated & Shared)
 - Display device battery percentages
 	- Hint: Assign the approriate tracker roles for your device to identify your trackers
 - Acessibility
@@ -17,6 +18,9 @@ OpenFps is an performance monitoring and utility tool for OpenVR compatible runt
 	- Change the mounting position of the overlay (Above, Wrist, Below)
 - SteamVR Resolution Adjustment
 	- Adjust your SteamVR resolution straight from OpenFps to reduce friction
+- Display Color Adjustment
+	- Apply colors filters, brightness control directly from OpenFps universally.
+	- **ONLY AVAILABLE FOR NATIVE STEAMVR HEADSETS**
  
 ## Usage
 
