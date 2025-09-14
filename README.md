@@ -2,7 +2,9 @@
 
 OpenFps is an performance monitoring and utility tool for OpenVR compatible runtimes for aiding to identify performance issues.
 
-![showcase](https://github.com/user-attachments/assets/a00a6ab2-e0c9-4b56-9152-b53b1bbffc56)
+<div align="center">
+	<img src="https://github.com/user-attachments/assets/9f545065-919c-4ece-9a4f-375d576eb59e"/>
+</div>
 
 ## Features
 
