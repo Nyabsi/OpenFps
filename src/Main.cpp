@@ -59,7 +59,7 @@ static glm::quat g_rotation = {};
 #define APP_NAME    "OpenFps"
 
 #define WIN_WIDTH   500
-#define WIN_HEIGHT  340
+#define WIN_HEIGHT  370
 
 static auto UpdateApplicationRefreshRate() -> void
 {

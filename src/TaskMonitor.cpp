@@ -210,6 +210,7 @@ auto TaskMonitor::Update() -> void
                 }
             }
 
+            info.cpu = process_list_[info.pid].cpu;
             info.cpu.utilization_percentages[info.cpu.total_processes] = items[i].FmtValue.largeValue;
             info.cpu.total_processes += 1;
             
@@ -221,12 +222,14 @@ auto TaskMonitor::Update() -> void
     free(items);
     bufferSize = 0;
 
+    SYSTEM_INFO system_info;
+    GetSystemInfo(&system_info);
 
     float utilization_percentage = 0.0f;
     for (auto it = process_list_.begin(); it != process_list_.end(); ) {
 		for (auto& u : it->second.cpu.utilization_percentages)
             utilization_percentage += u.second;
-		it->second.cpu.utilization_percentage = utilization_percentage;
+		it->second.cpu.utilization_percentage = utilization_percentage / system_info.dwNumberOfProcessors;
         it++;
     }
 }

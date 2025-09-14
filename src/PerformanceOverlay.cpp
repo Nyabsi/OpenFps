@@ -32,6 +32,8 @@ PerformanceOverlay::PerformanceOverlay()
     total_frames_ = {};
     cpu_frame_time_ms_ = {};
     gpu_frame_time_ms_ = {};
+	cpu_frame_time_avg_ = {};
+	gpu_frame_time_avg_ = {};
     current_fps_ = {};
     frame_index_ = {};
     bottleneck_flags_ = {};
@@ -216,7 +218,7 @@ auto PerformanceOverlay::Draw() -> void
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("CPU Frametime");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.1f ms", cpu_frame_time_ms_);
+                ImGui::Text("%.1f ms", cpu_frame_time_avg_);
 
                 ImGui::EndTable();
             }
@@ -278,7 +280,7 @@ auto PerformanceOverlay::Draw() -> void
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("GPU Frametime");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.1f ms", gpu_frame_time_ms_);
+                ImGui::Text("%.1f ms", gpu_frame_time_avg_);
 
                 ImGui::EndTable();
             }
@@ -358,18 +360,11 @@ auto PerformanceOverlay::Draw() -> void
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%.0f MB / %.0f MB", static_cast<float>(process_info.gpu.dedicated_vram_usage) / (1000.0f * 1000.0f), static_cast<float>(vram_info.dedicated_available) / (1024.0f * 1024.0f));
 
-                auto gpuPercentage = [](ProcessInfo info) {
-                    for (const auto& e : info.gpu.engines) {
-                        if (e.second.engine_type == "3D")
-                            return e.second.utilization_percentage;
-                    }
-                };
-
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("GPU");
+                ImGui::Text("CPU");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%d%%", gpuPercentage(process_info));
+                ImGui::Text("%.1f %%", process_info.cpu.utilization_percentage);
 
                 ImGui::EndTable();
             }
@@ -411,11 +406,18 @@ auto PerformanceOverlay::Draw() -> void
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%.0f MB / %.0f MB", static_cast<float>(process_info.gpu.shared_vram_usage) / (1000.0f * 1000.0f), static_cast<float>(vram_info.shared_available) / (1024.0f * 1024.0f));
 
+                auto gpuPercentage = [](ProcessInfo info) {
+                    for (const auto& e : info.gpu.engines) {
+                        if (e.second.engine_type == "3D")
+                            return e.second.utilization_percentage;
+                    }
+                    };
+
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("CPU");
+                ImGui::Text("GPU");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%d%%", process_info.cpu.utilization_percentage * 0.1f);
+                ImGui::Text("%.1f %%", gpuPercentage(process_info));
 
                 ImGui::EndTable();
             }
@@ -743,8 +745,6 @@ auto PerformanceOverlay::Draw() -> void
 
 auto PerformanceOverlay::Update() -> void
 {
-    task_monitor_.Update();
-
     vr::Compositor_FrameTiming timings =
     {
         .m_nSize = sizeof(vr::Compositor_FrameTiming)
@@ -898,8 +898,13 @@ auto PerformanceOverlay::Update() -> void
         bottleneck_ = (bottleneck_flags_ != BottleneckSource_Flags_None);
     }
 
-    static double last_time = -1.0f;
-    static double current_time = ImGui::GetTime();
+    static double last_time = 0.0;
+    if (ImGui::GetTime() - last_time >= 0.5f) {
+		cpu_frame_time_avg_ = cpu_frame_time_ms_;
+		gpu_frame_time_avg_ = gpu_frame_time_ms_;
+        task_monitor_.Update();
+        last_time = ImGui::GetTime();
+    }
 
     for (uint64_t i = 0; i < vr::k_unMaxTrackedDeviceCount; i++) {
         try {
