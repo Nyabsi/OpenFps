@@ -6,7 +6,7 @@
 
 #include "VulkanRenderer.h"
 #include "VrOverlay.h"
-#include "VRAMMonitor.hpp"
+#include "TaskMonitor.hpp"
 #include "Settings.hpp"
 
 #define IMGUI_NORMALIZED_RGBA(r, g, b, a) ImVec4(((r) / 255.0f), ((g) / 255.0f), ((b) / 255.0f), ((a) / 255.0f))
@@ -64,7 +64,6 @@ class PerformanceOverlay
 {
 public:
     explicit PerformanceOverlay();
-	~PerformanceOverlay();
     auto Initialize(VulkanRenderer*& renderer, VrOverlay*& overlay, int width, int height) -> void;
 
     [[nodiscard]] auto OverlayData() -> Vulkan_Overlay* { return reinterpret_cast<Vulkan_Overlay*>(&overlay_data_); };
@@ -81,7 +80,7 @@ public:
 private:
     auto UpdateDeviceTransform() -> void;
 
-	VRAMMonitor* vram_monitor_;
+    TaskMonitor task_monitor_;
     Settings settings_;
 
     float frame_time_;

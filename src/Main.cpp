@@ -85,7 +85,7 @@ int main(
     [[maybe_unused]] char** argv
 ) {
 #ifdef _WIN32
-    ShowWindow(GetConsoleWindow(), SW_HIDE);
+    ShowWindow(GetConsoleWindow(), SW_SHOW);
 #endif
     std::srand(std::time(nullptr));
 
