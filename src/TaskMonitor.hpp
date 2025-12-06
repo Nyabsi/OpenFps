@@ -87,6 +87,20 @@ inline auto gpuPercentage = [](const GpuInfo& gpu) -> float
     return 0.0f;
 };
 
+inline auto gpuVideoPercentage = [](const GpuInfo& gpu) -> float
+{
+    if (auto it = std::ranges::find_if(gpu.engines,
+        [](const auto& pair) {
+            const auto& [key, eng] = pair;
+            return eng.engine_type.find("Encode") != std::string::npos || eng.engine_type.find("Codec") != std::string::npos && eng.utilization_percentage > 0.0f;
+        });
+        it != gpu.engines.end())
+    {
+        return it->second.utilization_percentage;
+    }
+    return 0.0f;
+};
+
 class TaskMonitor {
 public:
     explicit TaskMonitor();

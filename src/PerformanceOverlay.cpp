@@ -741,12 +741,13 @@ auto PerformanceOverlay::Draw() -> void
                     ImGuiTableFlags_SizingStretchProp |
                     ImGuiTableFlags_Sortable;
 
-                if (ImGui::BeginTable("process_list", 7, flags))
+                if (ImGui::BeginTable("process_list", 8, flags))
                 {
                     ImGui::TableSetupColumn("PID");
                     ImGui::TableSetupColumn("Name");
                     ImGui::TableSetupColumn("CPU %");
                     ImGui::TableSetupColumn("GPU %");
+                    ImGui::TableSetupColumn("Video %");
                     ImGui::TableSetupColumn("D-VRAM");
                     ImGui::TableSetupColumn("S-VRAM");
                     ImGui::TableSetupColumn("Actions");
@@ -792,15 +793,19 @@ auto PerformanceOverlay::Draw() -> void
                                     float gb = gpuPercentage(gpuB);
                                     return (s.SortDirection == ImGuiSortDirection_Ascending) ? ga < gb : ga > gb;
                                 }
-
                                 case 4:
+                                {
+                                    float ga = gpuVideoPercentage(gpuA);
+                                    float gb = gpuVideoPercentage(gpuB);
+                                    return (s.SortDirection == ImGuiSortDirection_Ascending) ? ga < gb : ga > gb;
+                                }
+                                case 5:
                                 {
                                     auto da = gpuA.memory.dedicated_vram_usage;
                                     auto db = gpuB.memory.dedicated_vram_usage;
                                     return (s.SortDirection == ImGuiSortDirection_Ascending) ? da < db : da > db;
                                 }
-
-                                case 5:
+                                case 6:
                                 {
                                     auto sa = getCurrentlyUsedGpu(infoA).memory.shared_vram_usage;
                                     auto sb = getCurrentlyUsedGpu(infoB).memory.shared_vram_usage;
@@ -830,12 +835,15 @@ auto PerformanceOverlay::Draw() -> void
                         ImGui::Text("%.1f %%", gpuPercentage(gpu));
 
                         ImGui::TableSetColumnIndex(4);
-                        ImGui::Text("%.0f MB", gpu.memory.dedicated_vram_usage / (1000.0f * 1000.0f));
+                        ImGui::Text("%.1f %%", gpuVideoPercentage(gpu));
 
                         ImGui::TableSetColumnIndex(5);
-                        ImGui::Text("%.0f MB", gpu.memory.shared_vram_usage / (1000.0f * 1000.0f));
+                        ImGui::Text("%.0f MB", gpu.memory.dedicated_vram_usage / (1000.0f * 1000.0f));
 
                         ImGui::TableSetColumnIndex(6);
+                        ImGui::Text("%.0f MB", gpu.memory.shared_vram_usage / (1000.0f * 1000.0f));
+
+                        ImGui::TableSetColumnIndex(7);
                         ImGui::PushID(pid);
                         if (ImGui::Button("Kill")) {
                             HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
