@@ -137,7 +137,7 @@ auto PerformanceOverlay::Initialize(VulkanRenderer*& renderer, VrOverlay*& overl
     };
 
     ImGui_ImplVulkan_Init(&init_info);
-    renderer->SetupOverlay(width, height, surface_format);
+    renderer->SetupSurface(width, height, surface_format);
 
     cpu_frame_times_.resize(static_cast<int>(refresh_rate_));
     gpu_frame_times_.resize(static_cast<int>(refresh_rate_));

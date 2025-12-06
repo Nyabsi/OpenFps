@@ -33,33 +33,7 @@ struct Vulkan_FrameSemaphore
     VkSemaphore render_complete_semaphore;
 };
 
-struct Vulkan_Window
-{
-    uint32_t width;
-    uint32_t height;
-    VkSwapchainKHR swapchain;
-    VkSurfaceKHR surface;
-    VkSurfaceFormatKHR surface_format;
-    VkPresentModeKHR present_mode;
-    VkRenderPass render_pass;
-    VkPipeline pipeline;
-    bool clear_enable;
-    VkClearValue clear_value;
-    uint32_t frame_index;
-    uint32_t image_count;
-    uint32_t semaphore_count;
-    uint32_t semaphore_index;
-    std::vector<Vulkan_Frame> frames;
-    std::vector<Vulkan_FrameSemaphore> semaphores;
-    bool is_minimized;
-
-    Vulkan_Window()
-    {
-        memset((void*)this, 0, sizeof(*this));
-    }
-};
-
-struct Vulkan_Overlay 
+struct Vulkan_Surface 
 {
     uint32_t width;
     uint32_t height;
@@ -74,7 +48,7 @@ struct Vulkan_Overlay
     bool clear_enable;
     VkClearValue clear_value;
 
-    Vulkan_Overlay()
+    Vulkan_Surface()
     {
         memset((void*)this, 0, sizeof(*this));
     }
@@ -93,24 +67,13 @@ public:
     [[nodiscard]] auto Queue() const -> VkQueue { return vulkan_queue_; }
     [[nodiscard]] auto DescriptorPool() const -> VkDescriptorPool { return vulkan_descriptor_pool_; }
     [[nodiscard]] auto PipelineCache() const -> VkPipelineCache { return vulkan_pipeline_cache_; }
-    [[nodiscard]] auto MinimumConcurrentImageCount() const -> uint32_t { return minimum_concurrent_image_count_; }
-    [[nodiscard]] auto ShouldRebuildSwapchain() const -> bool { return should_rebuild_swapchain_; }
 
-    auto SetupWindow(Vulkan_Window* window, VkSurfaceKHR surface, uint32_t width, uint32_t height) -> void;
-    auto SetupOverlay(uint32_t width, uint32_t height, VkSurfaceFormatKHR format) -> void;
-    auto SetupSwapchain(Vulkan_Window* window, uint32_t width, uint32_t height) -> void;
-    // ImGui renderer helpers
-    auto RenderWindow(ImDrawData* draw_data, Vulkan_Window* window) -> void;
-    auto RenderOverlay(ImDrawData* draw_data, VrOverlay*& overlay) -> void;
+    auto SetupSurface(uint32_t width, uint32_t height, VkSurfaceFormatKHR format) -> void;
+    auto RenderSurface(ImDrawData* draw_data, VrOverlay*& overlay) -> void;
+    auto DestroySurface(Vulkan_Surface* surface) const -> void;
 
-    auto Present(Vulkan_Window* window) -> void;
-
-    auto DestroyWindow(Vulkan_Window* window) const -> void;
-    auto DestroyOverlay(Vulkan_Overlay* vulkan_overlay) const -> void;
-    auto Destroy() -> void;
+    auto Destroy() const -> void;
 private:
-    
-    auto DestroyFrames(Vulkan_Window* window) const -> void;
 
     VkInstance vulkan_instance_;
     VkPhysicalDevice vulkan_physical_device_;
@@ -120,14 +83,11 @@ private:
     VkQueue vulkan_queue_;
     VkDescriptorPool vulkan_descriptor_pool_;
     VkPipelineCache vulkan_pipeline_cache_;
-    std::atomic<uint32_t> minimum_concurrent_image_count_;
-    std::atomic<bool> should_rebuild_swapchain_;
     std::vector<std::string> vulkan_instance_extensions_;
     std::vector<std::string> vulkan_device_extensions_;
     VkDebugReportCallbackEXT debug_report_;
     std::vector<VkPhysicalDevice> device_list_;
-    std::atomic<bool> should_enable_dynamic_rendering_;
-    std::unique_ptr<Vulkan_Overlay> vulkan_overlay_;
+    std::unique_ptr<Vulkan_Surface> surface_;
 
     // Vulkan function wrappers
     PFN_vkCmdBeginRenderingKHR f_vkCmdBeginRenderingKHR;

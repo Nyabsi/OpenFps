@@ -224,7 +224,7 @@ int main(
 
         if ((g_performanceOverlay->DisplayMode() == Overlay_DisplayMode_Always || (g_performanceOverlay->DisplayMode() == Overlay_DisplayMode_Dashboard && vr::VROverlay()->IsDashboardVisible())) && !g_keyboard_global_show) {
             ImDrawData* draw_data = ImGui::GetDrawData();
-            g_vulkanRenderer->RenderOverlay(draw_data, g_overlay);
+            g_vulkanRenderer->RenderSurface(draw_data, g_overlay);
         }
 
         uint64_t target_time = static_cast<uint64_t>((static_cast<float>(1000000000) / g_hmd_refresh_rate));
