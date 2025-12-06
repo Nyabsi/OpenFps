@@ -87,6 +87,8 @@ auto TaskMonitor::Destroy() -> void
 
 auto TaskMonitor::Update() -> void
 {
+    process_list_.clear();
+
     PDH_STATUS result = {};
 
     result = PdhCollectQueryData(pdh_query_);
