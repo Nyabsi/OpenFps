@@ -108,7 +108,7 @@ auto TaskMonitor::Update() -> void
     for (auto it = process_list_.begin(); it != process_list_.end(); ) {
         // If the process name is empty but allocates VRAM it's an system process
         // it's removed because Task Manager removes these processes as well.
-        if (it->second.process_name.empty()) {
+        if (it->second.process_name.empty() || strcmp(it->second.process_name.c_str(), "Idle") == 0 || strcmp(it->second.process_name.c_str(), "_Total") == 0) {
             it = process_list_.erase(it);
         }
         else {

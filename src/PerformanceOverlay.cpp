@@ -741,7 +741,7 @@ auto PerformanceOverlay::Draw() -> void
                     ImGuiTableFlags_SizingStretchProp |
                     ImGuiTableFlags_Sortable;
 
-                if (ImGui::BeginTable("process_list", 6, flags))
+                if (ImGui::BeginTable("process_list", 7, flags))
                 {
                     ImGui::TableSetupColumn("PID");
                     ImGui::TableSetupColumn("Name");
@@ -749,6 +749,7 @@ auto PerformanceOverlay::Draw() -> void
                     ImGui::TableSetupColumn("GPU %");
                     ImGui::TableSetupColumn("D-VRAM");
                     ImGui::TableSetupColumn("S-VRAM");
+                    ImGui::TableSetupColumn("Actions");
                     ImGui::TableHeadersRow();
 
                     std::vector<std::pair<uint64_t, ProcessInfo>> rows;
@@ -833,6 +834,17 @@ auto PerformanceOverlay::Draw() -> void
 
                         ImGui::TableSetColumnIndex(5);
                         ImGui::Text("%.0f MB", gpu.memory.shared_vram_usage / (1000.0f * 1000.0f));
+
+                        ImGui::TableSetColumnIndex(6);
+                        ImGui::PushID(pid);
+                        if (ImGui::Button("Kill")) {
+                            HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+                            if (process) {
+                                TerminateProcess(process, 0);
+                                CloseHandle(process);
+                            }
+                        }
+                        ImGui::PopID();
                     }
 
                     ImGui::EndTable();
