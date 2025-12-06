@@ -50,6 +50,7 @@ static float g_hmd_refresh_rate = 24.0f;
 static bool g_ticking = true;
 static bool g_keyboard_global_show = false;
 static float g_overlay_width = -1.0f;
+static uint32_t last_index = vr::k_unTrackedDeviceIndexInvalid;
 
 static vr::ETrackedControllerRole g_overlay_handedness = vr::TrackedControllerRole_Invalid;
 static glm::vec3 g_position = {};
@@ -212,11 +213,15 @@ int main(
             g_overlay_width = scale;
         }
 
-        if (g_overlay_handedness != handedness || (g_position != position && g_rotation != rotation) && vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(handedness) != vr::k_unTrackedDeviceIndexInvalid) {
+        auto hand_index = vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(handedness);
+        if (g_overlay_handedness != handedness || (g_position != position && g_rotation != rotation) || last_index == vr::k_unTrackedDeviceIndexInvalid && hand_index != vr::k_unTrackedDeviceIndexInvalid) {
             g_overlay->SetTransformDeviceRelative(handedness, position, rotation);
             g_overlay_handedness = handedness;
             g_position = position;
             g_rotation = rotation;
+
+            if (last_index == vr::k_unTrackedDeviceIndexInvalid)
+                last_index = hand_index;
         }
 
         g_performanceOverlay->Update();
