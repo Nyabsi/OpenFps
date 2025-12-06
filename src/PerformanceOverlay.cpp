@@ -433,6 +433,8 @@ auto PerformanceOverlay::Draw() -> void
 
                 ImGui::TableSetColumnIndex(1);
                 if (tracker.battery_percentage <= 0.2f)
+                    ImGui::TextColored(Color_Yellow, "%d%%", (int)(tracker.battery_percentage * 100));
+                else if (tracker.battery_percentage <= 0.1f)
                     ImGui::TextColored(Color_Red, "%d%%", (int)(tracker.battery_percentage * 100));
                 else
                     ImGui::Text("%d%%", (int)(tracker.battery_percentage * 100));
@@ -452,6 +454,8 @@ auto PerformanceOverlay::Draw() -> void
 
                 ImGui::TableSetColumnIndex(1);
                 if (tracker.battery_percentage <= 0.2f)
+                    ImGui::TextColored(Color_Yellow, "%d%%", (int)(tracker.battery_percentage * 100));
+                else if (tracker.battery_percentage <= 0.1f)
                     ImGui::TextColored(Color_Red, "%d%%", (int)(tracker.battery_percentage * 100));
                 else
                     ImGui::Text("%d%%", (int)(tracker.battery_percentage * 100));
