@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <stdint.h>
 #include <dxgi1_6.h>
+#include <ranges>
 
 struct GpuEngine {
     uint32_t engine_index;
@@ -55,14 +56,47 @@ enum CpuMetric_Type : uint8_t {
     CpuMetric_Total_Time = 3,
 };
 
+// This nai've implementation does not account for SLI.
+inline auto getCurrentlyUsedGpu = [](const ProcessInfo& info) -> GpuInfo 
+{
+    auto gpuIt = std::ranges::find_if(info.gpus, [](auto& gpuEntry) {
+        auto& [gpuId, gpu] = gpuEntry;
+        return std::ranges::find_if(gpu.engines, [](auto& engEntry) {
+            const auto& [idx, eng] = engEntry;
+            return eng.utilization_percentage > 0.0f;
+        }) != gpu.engines.end();
+    });
+
+    return gpuIt != info.gpus.end()
+        ? gpuIt->second
+        : GpuInfo{};
+};
+
+inline auto gpuPercentage = [](const GpuInfo& gpu) -> float
+{
+    if (auto it = std::ranges::find_if(gpu.engines,
+        [](const auto& pair) {
+            const auto& [key, eng] = pair;
+            return eng.engine_type == "3D" &&
+                eng.utilization_percentage > 0.0f;
+        });
+        it != gpu.engines.end())
+    {
+        return it->second.utilization_percentage;
+    }
+    return 0.0f;
+};
+
 class TaskMonitor {
 public:
     explicit TaskMonitor();
+
+    [[nodiscard]] auto Processes() const -> std::unordered_map<uint64_t, ProcessInfo> { return process_list_; }
+
     auto Initialize() -> void;
     auto Destroy() -> void;
     auto Update() -> void;
 	auto GetProcessInfoByPid(uint64_t pid) -> ProcessInfo;
-	auto GetVramUsageByGpuIndex(uint32_t index) -> VRAMInfo;
 private:
     auto mapProcessesToPid(PDH_HCOUNTER counter) -> void;
     auto calculateGpuMetricFromCounter(PDH_HCOUNTER counter, GpuMetric_Type type) -> void;

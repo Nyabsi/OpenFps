@@ -1,4 +1,4 @@
-#include "PerformanceOverlay.h"
+﻿#include "PerformanceOverlay.h"
 
 #include <imgui.h>
 #include <backends/imgui_impl_vulkan.h>
@@ -196,18 +196,6 @@ auto PerformanceOverlay::Draw() -> void
 
         GpuInfo gpu_info = {};
 		ProcessInfo process_info = {};
-
-        // This nai've implementation does not account for SLI.
-        auto getCurrentlyUsedGpu = [](ProcessInfo& info) -> GpuInfo {
-            for (auto& [gpu, gpu_info] : info.gpus) {
-                for (auto& [engine_index, engine] : gpu_info.engines) {
-                    if (engine.engine_type == "3D" && engine.utilization_percentage > 0.0f) {
-                        return gpu_info;
-                    }
-                }
-            }
-            return {};
-        };
 
         auto pid = GetCurrentGamePid();
         if (pid > 0) {
@@ -418,14 +406,6 @@ auto PerformanceOverlay::Draw() -> void
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%.0f MB / %.0f MB", static_cast<float>(gpu_info.memory.shared_vram_usage) / (1000.0f * 1000.0f), static_cast<float>(gpu_info.memory.shared_available) / (1024.0f * 1024.0f));
 
-                auto gpuPercentage = [](GpuInfo& gpu) {
-                    for (const auto& e : gpu.engines) {
-                        if (e.second.engine_type == "3D" && e.second.utilization_percentage > 0.0f)
-                            return e.second.utilization_percentage;
-                    }
-                    return 0.0f;
-                };
-
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("GPU");
@@ -442,46 +422,45 @@ auto PerformanceOverlay::Draw() -> void
         childSize = ImVec2((avail.x / 2) - style.FramePadding.x, avail.y - style.FramePadding.y);
         auto childSizeTotal = ImVec2(avail.x, avail.y);
 
-        if (ImGui::BeginChild("##battery_section", childSizeTotal, ImGuiChildFlags_None)) {
-            if (ImGui::BeginChild("##battery_section_high", childSize, ImGuiChildFlags_None)) {
-                if (ImGui::BeginTable("##batteries_high", 2, ImGuiTableFlags_SizingStretchProp)) {
-                    for (auto& tracker : tracker_batteries_high) {
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("(%d) %s", tracker.device_id, tracker.device_label.c_str());
-                        ImGui::TableSetColumnIndex(1);
-                        if (tracker.battery_percentage <= 0.2f)
-                            ImGui::TextColored(Color_Red, "%d%%", static_cast<int>(tracker.battery_percentage * 100));
-                        else
-                            ImGui::Text("%d%%", static_cast<int>(tracker.battery_percentage * 100));
-                    }
-                    ImGui::EndTable();
-                }
+        ImGui::BeginChild("##battery_section", childSizeTotal, ImGuiChildFlags_None);
 
-                ImGui::EndChild();
+        ImGui::BeginChild("##battery_section_high", childSize, ImGuiChildFlags_None);
+        if (ImGui::BeginTable("##batteries_high", 2, ImGuiTableFlags_SizingStretchProp)) {
+            for (auto& tracker : tracker_batteries_high) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("(%d) %s", tracker.device_id, tracker.device_label.c_str());
+
+                ImGui::TableSetColumnIndex(1);
+                if (tracker.battery_percentage <= 0.2f)
+                    ImGui::TextColored(Color_Red, "%d%%", (int)(tracker.battery_percentage * 100));
+                else
+                    ImGui::Text("%d%%", (int)(tracker.battery_percentage * 100));
             }
-
-            ImGui::SameLine();
-
-            if (ImGui::BeginChild("##battery_section_low", childSize, ImGuiChildFlags_None)) {
-                if (ImGui::BeginTable("##batteries_low", 2, ImGuiTableFlags_SizingStretchProp)) {
-                    for (auto& tracker : tracker_batteries_low) {
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("(%d) %s", tracker.device_id, tracker.device_label.c_str());
-                        ImGui::TableSetColumnIndex(1);
-                        if (tracker.battery_percentage <= 0.2f)
-                            ImGui::TextColored(Color_Red, "%d%%", static_cast<int>(tracker.battery_percentage * 100));
-                        else
-                            ImGui::Text("%d%%", static_cast<int>(tracker.battery_percentage * 100));
-                    }
-                    ImGui::EndTable();
-                }
-
-                ImGui::EndChild();
-            }
-            ImGui::EndChild();
+            ImGui::EndTable();
         }
+        ImGui::EndChild();
+
+        ImGui::SameLine();
+
+        ImGui::BeginChild("##battery_section_low", childSize, ImGuiChildFlags_None);
+        if (ImGui::BeginTable("##batteries_low", 2, ImGuiTableFlags_SizingStretchProp)) {
+            for (auto& tracker : tracker_batteries_low) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("(%d) %s", tracker.device_id, tracker.device_label.c_str());
+
+                ImGui::TableSetColumnIndex(1);
+                if (tracker.battery_percentage <= 0.2f)
+                    ImGui::TextColored(Color_Red, "%d%%", (int)(tracker.battery_percentage * 100));
+                else
+                    ImGui::Text("%d%%", (int)(tracker.battery_percentage * 100));
+            }
+            ImGui::EndTable();
+        }
+
+        ImGui::EndChild();
+        ImGui::EndChild();
     }
     else {
         if (ImGui::BeginTabBar("##settings")) {
@@ -744,6 +723,118 @@ auto PerformanceOverlay::Draw() -> void
                     ImGui::EndTable();
                 }
                 
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Process List")) {
+                ImGui::BeginChild("process_list_scroller", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+
+                ImGuiTableFlags flags =
+                    ImGuiTableFlags_Borders |
+                    ImGuiTableFlags_RowBg |
+                    ImGuiTableFlags_Resizable |
+                    ImGuiTableFlags_Hideable |
+                    ImGuiTableFlags_SizingStretchProp |
+                    ImGuiTableFlags_Sortable;
+
+                if (ImGui::BeginTable("process_list", 6, flags))
+                {
+                    ImGui::TableSetupColumn("PID");
+                    ImGui::TableSetupColumn("Name");
+                    ImGui::TableSetupColumn("CPU %");
+                    ImGui::TableSetupColumn("GPU %");
+                    ImGui::TableSetupColumn("D-VRAM");
+                    ImGui::TableSetupColumn("S-VRAM");
+                    ImGui::TableHeadersRow();
+
+                    std::vector<std::pair<uint64_t, ProcessInfo>> rows;
+                    rows.reserve(task_monitor_.Processes().size());
+                    for (auto& kv : task_monitor_.Processes())
+                        rows.push_back(kv);
+
+                    if (ImGuiTableSortSpecs* sortSpecs = ImGui::TableGetSortSpecs())
+                    {
+                        const ImGuiTableColumnSortSpecs& s = sortSpecs->Specs[0];
+
+                        std::sort(rows.begin(), rows.end(), [&](const auto& a, const auto& b)
+                        {
+                            const auto& infoA = a.second;
+                            const auto& infoB = b.second;
+
+                            GpuInfo gpuA = getCurrentlyUsedGpu(infoA);
+                            GpuInfo gpuB = getCurrentlyUsedGpu(infoB);
+
+                            switch (s.ColumnIndex)
+                                {
+                                case 0:
+                                    return (s.SortDirection == ImGuiSortDirection_Ascending)
+                                        ? a.first < b.first
+                                        : a.first > b.first;
+
+                                case 1:
+                                    return (s.SortDirection == ImGuiSortDirection_Ascending)
+                                        ? infoA.process_name < infoB.process_name
+                                        : infoA.process_name > infoB.process_name;
+
+                                case 2:
+                                    return (s.SortDirection == ImGuiSortDirection_Ascending)
+                                        ? infoA.cpu.total_cpu_usage < infoB.cpu.total_cpu_usage
+                                        : infoA.cpu.total_cpu_usage > infoB.cpu.total_cpu_usage;
+
+                                case 3:
+                                {
+                                    float ga = gpuPercentage(gpuA);
+                                    float gb = gpuPercentage(gpuB);
+                                    return (s.SortDirection == ImGuiSortDirection_Ascending) ? ga < gb : ga > gb;
+                                }
+
+                                case 4:
+                                {
+                                    auto da = gpuA.memory.dedicated_vram_usage;
+                                    auto db = gpuB.memory.dedicated_vram_usage;
+                                    return (s.SortDirection == ImGuiSortDirection_Ascending) ? da < db : da > db;
+                                }
+
+                                case 5:
+                                {
+                                    auto sa = getCurrentlyUsedGpu(infoA).memory.shared_vram_usage;
+                                    auto sb = getCurrentlyUsedGpu(infoB).memory.shared_vram_usage;
+                                    return (s.SortDirection == ImGuiSortDirection_Ascending) ? sa < sb : sa > sb;
+                                }
+                            }
+                            return false;
+                        });
+                    }
+
+                    for (auto& [pid, info] : rows)
+                    {
+                        ImGui::TableNextRow();
+
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::Text("%llu", pid);
+
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%s", info.process_name.c_str());
+
+                        ImGui::TableSetColumnIndex(2);
+                        ImGui::Text("%.1f %%", info.cpu.total_cpu_usage);
+
+                        auto gpu = getCurrentlyUsedGpu(info);
+
+                        ImGui::TableSetColumnIndex(3);
+                        ImGui::Text("%.1f %%", gpuPercentage(gpu));
+
+                        ImGui::TableSetColumnIndex(4);
+                        ImGui::Text("%.0f MB", gpu.memory.dedicated_vram_usage / (1000.0f * 1000.0f));
+
+                        ImGui::TableSetColumnIndex(5);
+                        ImGui::Text("%.0f MB", gpu.memory.shared_vram_usage / (1000.0f * 1000.0f));
+                    }
+
+                    ImGui::EndTable();
+                }
+
+                ImGui::EndChild();
                 ImGui::EndTabItem();
             }
 
