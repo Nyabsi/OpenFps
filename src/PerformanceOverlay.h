@@ -3,7 +3,6 @@
 #include <vector>
 
 #include <imgui.h>
-#include <SDL3/SDL.h>
 
 #include "VulkanRenderer.h"
 #include "VrOverlay.h"
@@ -73,9 +72,6 @@ public:
     [[nodiscard]] auto Handedness() const -> int { return handedness_; }
     [[nodiscard]] auto Transform() const -> OverlayTransform { return transform_; }
 
-    [[nodiscard]] auto Window() const -> SDL_Window* { return window_; };
-    [[nodiscard]] auto WindowData() -> Vulkan_Window* { return reinterpret_cast<Vulkan_Window*>(&window_data_); };
-
     auto Draw() -> void;
     auto Update() -> void;
     auto Destroy() -> void;
@@ -94,9 +90,7 @@ private:
     Vulkan_Surface overlay_data_;
     Overlay_DisplayMode display_mode_;
     OverlayTransform transform_;
-    
-    SDL_Window* window_;
-    Vulkan_Window window_data_;
+
     bool window_shown_;
     bool window_minimized_;
     bool keyboard_active_;

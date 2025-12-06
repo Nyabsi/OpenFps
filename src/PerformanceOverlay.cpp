@@ -194,13 +194,25 @@ auto PerformanceOverlay::Draw() -> void
 
         ImGuiStyle& style = ImGui::GetStyle();
 
-        VRAMInfo vram_info = {};
+        GpuInfo gpu_info = {};
 		ProcessInfo process_info = {};
+
+        // This nai've implementation does not account for SLI.
+        auto getCurrentlyUsedGpu = [](ProcessInfo& info) -> GpuInfo {
+            for (auto& [gpu, gpu_info] : info.gpus) {
+                for (auto& [engine_index, engine] : gpu_info.engines) {
+                    if (engine.engine_type == "3D" && engine.utilization_percentage > 0.0f) {
+                        return gpu_info;
+                    }
+                }
+            }
+            return {};
+        };
 
         auto pid = GetCurrentGamePid();
         if (pid > 0) {
 			process_info = task_monitor_.GetProcessInfoByPid(pid);
-            vram_info = task_monitor_.GetVramUsageByGpuIndex(process_info.gpu.gpu_index);
+            gpu_info = getCurrentlyUsedGpu(process_info);
             ImGui::Text("Current Application: %s (%d)", process_info.process_name.c_str(), pid);
         }
         else {
@@ -358,13 +370,13 @@ auto PerformanceOverlay::Draw() -> void
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("D-VRAM Usage");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.0f MB / %.0f MB", static_cast<float>(process_info.gpu.dedicated_vram_usage) / (1000.0f * 1000.0f), static_cast<float>(vram_info.dedicated_available) / (1024.0f * 1024.0f));
+                ImGui::Text("%.0f MB / %.0f MB", static_cast<float>(gpu_info.memory.dedicated_vram_usage) / (1000.0f * 1000.0f), static_cast<float>(gpu_info.memory.dedicated_available) / (1024.0f * 1024.0f));
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("CPU");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.1f %%", process_info.cpu.utilization_percentage);
+                ImGui::Text("%.1f %%", process_info.cpu.total_cpu_usage);
 
                 ImGui::EndTable();
             }
@@ -404,20 +416,21 @@ auto PerformanceOverlay::Draw() -> void
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("S-VRAM Usage");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.0f MB / %.0f MB", static_cast<float>(process_info.gpu.shared_vram_usage) / (1000.0f * 1000.0f), static_cast<float>(vram_info.shared_available) / (1024.0f * 1024.0f));
+                ImGui::Text("%.0f MB / %.0f MB", static_cast<float>(gpu_info.memory.shared_vram_usage) / (1000.0f * 1000.0f), static_cast<float>(gpu_info.memory.shared_available) / (1024.0f * 1024.0f));
 
-                auto gpuPercentage = [](ProcessInfo info) {
-                    for (const auto& e : info.gpu.engines) {
-                        if (e.second.engine_type == "3D")
+                auto gpuPercentage = [](GpuInfo& gpu) {
+                    for (const auto& e : gpu.engines) {
+                        if (e.second.engine_type == "3D" && e.second.utilization_percentage > 0.0f)
                             return e.second.utilization_percentage;
                     }
-                    };
+                    return 0.0f;
+                };
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("GPU");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.1f %%", gpuPercentage(process_info));
+                ImGui::Text("%.1f %%", gpuPercentage(gpu_info));
 
                 ImGui::EndTable();
             }
@@ -965,6 +978,8 @@ auto PerformanceOverlay::Update() -> void
 auto PerformanceOverlay::Destroy() -> void
 {
     free(colour_mask_);
+
+    task_monitor_.Destroy();
 
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplOpenVR_Shutdown();

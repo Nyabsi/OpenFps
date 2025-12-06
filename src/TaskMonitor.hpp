@@ -5,34 +5,12 @@
 #include <string>
 #include <unordered_map>
 #include <stdint.h>
+#include <dxgi1_6.h>
 
 struct GpuEngine {
     uint32_t engine_index;
 	std::string engine_type;
     float utilization_percentage;
-};
-
-struct ProcessInfo {
-    uint32_t pid;
-    std::string process_name;
-    struct {
-        struct {
-            uint32_t low;
-            uint64_t high;
-        } luid;
-        uint32_t gpu_index;
-        float dedicated_vram_usage;
-        float shared_vram_usage;
-        std::unordered_map<uint64_t, GpuEngine> engines;
-    } gpu;
-    struct {
-        size_t total_processes;
-        std::unordered_map<uint64_t, float> utilization_percentages;
-        float utilization_percentage;
-    } cpu;
-    struct {
-        size_t total_usage; /* combined usage, including ALL sub-processes. */
-    } memory;
 };
 
 struct VRAMInfo {
@@ -42,19 +20,63 @@ struct VRAMInfo {
     size_t shared_available;
 };
 
+struct GpuInfo {
+    struct {
+        uint32_t low;
+        uint64_t high;
+    } luid;
+    uint32_t gpu_index;
+    std::unordered_map<uint64_t, GpuEngine> engines;
+    VRAMInfo memory;
+};
+
+struct ProcessInfo {
+    uint32_t pid;
+    std::string process_name;
+    std::unordered_map<uint32_t, GpuInfo> gpus;
+    struct {
+        double user_cpu_usage;
+        double kernel_cpu_usage;
+        double total_cpu_usage;
+    } cpu;
+};
+
+enum GpuMetric_Type : uint8_t {
+    GpuMetric_Unknown = 0,
+    GpuMetric_Dedicated_Vram = 1,
+    GpuMetric_Shared_Vram = 2,
+    GpuMetric_Engine_Utilization = 3,
+};
+
+enum CpuMetric_Type : uint8_t {
+    CpuMetric_Unknown = 0,
+    CpuMetric_User_Time = 1,
+    CpuMetric_Priviledged_Time = 2,
+    CpuMetric_Total_Time = 3,
+};
+
 class TaskMonitor {
 public:
     explicit TaskMonitor();
     auto Initialize() -> void;
+    auto Destroy() -> void;
     auto Update() -> void;
 	auto GetProcessInfoByPid(uint64_t pid) -> ProcessInfo;
 	auto GetVramUsageByGpuIndex(uint32_t index) -> VRAMInfo;
 private:
+    auto mapProcessesToPid(PDH_HCOUNTER counter) -> void;
+    auto calculateGpuMetricFromCounter(PDH_HCOUNTER counter, GpuMetric_Type type) -> void;
+    auto calculateCpuMetricFromCounter(PDH_HCOUNTER counter, CpuMetric_Type type) -> void;
+
     std::unordered_map<uint64_t, ProcessInfo> process_list_;
     PDH_HQUERY pdh_query_;
+    PDH_HCOUNTER pdh_processes_id_counter_;
 	PDH_HCOUNTER pdh_dedicated_vram_counter_;
     PDH_HCOUNTER pdh_shared_vram_counter_;
 	PDH_HCOUNTER pdh_gpu_utilization_counter_;
-	PDH_HCOUNTER pdh_cpu_utilization_counter_;
-	PDH_HCOUNTER pdh_memory_usage_counter_;
+	PDH_HCOUNTER pdh_user_process_time_;
+    PDH_HCOUNTER pdh_kernel_process_time_;
+    PDH_HCOUNTER pdh_total_process_time_;
+    SYSTEM_INFO system_info_;
+    IDXGIFactory6* dxgi_factory_;
 };

@@ -17,11 +17,16 @@ TaskMonitor::TaskMonitor()
     process_list_.clear();
 
     pdh_query_ = { };
+
+    pdh_processes_id_counter_ = { };
     pdh_dedicated_vram_counter_ = { };
     pdh_shared_vram_counter_ = { };
     pdh_gpu_utilization_counter_ = { };
-    pdh_cpu_utilization_counter_ = { };
-    pdh_memory_usage_counter_ = { };
+    pdh_user_process_time_ = { };
+    pdh_kernel_process_time_ = { };
+    pdh_total_process_time_ = { };
+    system_info_ = { };
+    dxgi_factory_ = nullptr;
 }
 
 auto TaskMonitor::Initialize() -> void
@@ -31,6 +36,10 @@ auto TaskMonitor::Initialize() -> void
     result = PdhOpenQueryA(NULL, 0, &pdh_query_);
 	if (result != ERROR_SUCCESS) 
         throw std::runtime_error("Failed to open query through PdhOpenQueryA");
+
+    result = PdhAddCounterA(pdh_query_, "\\Process(*)\\Id Process", 0, &pdh_processes_id_counter_);
+    if (result != ERROR_SUCCESS)
+        throw std::runtime_error("Failed to register counter (Id Process) through PdhAddCounterA");
 
     result = PdhAddCounterA(pdh_query_, "\\GPU Process Memory(*)\\Dedicated Usage", 0, &pdh_dedicated_vram_counter_);
     if (result != ERROR_SUCCESS)
@@ -44,13 +53,36 @@ auto TaskMonitor::Initialize() -> void
     if (result != ERROR_SUCCESS)
         throw std::runtime_error("Failed to register counter (Utilization Percentage) through PdhAddCounterA");
 
-    PdhAddCounterA(pdh_query_, "\\Process(*)\\% Processor Time", 0, &pdh_cpu_utilization_counter_);
+    PdhAddCounterA(pdh_query_, "\\Process(*)\\% User Time", 0, &pdh_user_process_time_);
+    if (result != ERROR_SUCCESS)
+        throw std::runtime_error("Failed to register counter (User Time) through PdhAddCounterA");
+
+    PdhAddCounterA(pdh_query_, "\\Process(*)\\% Privileged Time", 0, &pdh_kernel_process_time_);
+    if (result != ERROR_SUCCESS)
+        throw std::runtime_error("Failed to register counter (Privileged Time) through PdhAddCounterA");
+
+    PdhAddCounterA(pdh_query_, "\\Process(*)\\% Processor Time", 0, &pdh_total_process_time_);
     if (result != ERROR_SUCCESS)
         throw std::runtime_error("Failed to register counter (Processor Time) through PdhAddCounterA");
 
-    PdhAddCounterA(pdh_query_, "\\Process(*)\\Working Set", 0, &pdh_memory_usage_counter_);
-    if (result != ERROR_SUCCESS)
-        throw std::runtime_error("Failed to register counter (Working Set) through PdhAddCounterA");
+    GetSystemInfo(&system_info_);
+    CreateDXGIFactory1(__uuidof(IDXGIFactory6), (void**)&dxgi_factory_);
+}
+
+auto TaskMonitor::Destroy() -> void
+{
+    PdhCloseQuery(pdh_query_);
+
+    PdhRemoveCounter(pdh_processes_id_counter_);
+    PdhRemoveCounter(pdh_dedicated_vram_counter_);
+    PdhRemoveCounter(pdh_shared_vram_counter_);
+    PdhRemoveCounter(pdh_gpu_utilization_counter_);
+    PdhRemoveCounter(pdh_user_process_time_);
+    PdhRemoveCounter(pdh_kernel_process_time_);
+    PdhRemoveCounter(pdh_total_process_time_);
+
+    system_info_ = { };
+    dxgi_factory_->Release();
 }
 
 auto TaskMonitor::Update() -> void
@@ -61,124 +93,17 @@ auto TaskMonitor::Update() -> void
     if (result != ERROR_SUCCESS)
         throw std::runtime_error("Failed to collect query data through PdhCollectQueryData");
 
-    auto parseCounterToStruct = [](const std::string& name, ProcessInfo& info) {
-        std::stringstream stream(name);
-        std::string token;
-        std::vector<std::string> tokens;
+    mapProcessesToPid(pdh_processes_id_counter_);
 
-        while (std::getline(stream, token, '_')) {
-            tokens.push_back(token);
-        }
+    calculateGpuMetricFromCounter(pdh_dedicated_vram_counter_, GpuMetric_Dedicated_Vram);
+    calculateGpuMetricFromCounter(pdh_shared_vram_counter_, GpuMetric_Shared_Vram);
+    calculateGpuMetricFromCounter(pdh_gpu_utilization_counter_, GpuMetric_Engine_Utilization);
 
-        uint32_t engine_index = 0;
-        for (size_t i = 0; i < tokens.size(); ++i) {
-            if (tokens[i] == "pid" && i + 1 < tokens.size()) {
-                info.pid = std::stoul(tokens[i + 1]);
-                i++;
-            }
-            else if (tokens[i] == "luid" && i + 2 < tokens.size()) {
-                info.gpu.luid.low = std::stoul(tokens[i + 1], nullptr, 16);
-                info.gpu.luid.high = std::stoull(tokens[i + 2], nullptr, 16);
-                i += 2;
-            }
-            else if (tokens[i] == "phys" && i + 1 < tokens.size()) {
-                info.gpu.gpu_index = std::stoi(tokens[i + 1]);
-                i++;
-            }
-            else if (tokens[i] == "eng" && i + 1 < tokens.size()) {
-                engine_index = std::stoi(tokens[i + 1]);
-                info.gpu.engines[engine_index].engine_index = engine_index;
-                i++;
-            }
-
-            else if (tokens[i] == "engtype" && i + 1 < tokens.size()) {
-                std::string type = tokens[i + 1];
-                info.gpu.engines[engine_index].engine_type = type;
-                break;
-            }
-        }
-
-        return engine_index;
-    };
-
-    DWORD bufferSize = 0;
-    DWORD itemCount = 0;
-    PDH_FMT_COUNTERVALUE_ITEM* items = nullptr;
-
-    result = PdhGetFormattedCounterArrayA(pdh_dedicated_vram_counter_, PDH_FMT_LARGE, &bufferSize, &itemCount, nullptr);
-    if (result != PDH_MORE_DATA)
-        throw std::runtime_error("Failed to get formatted counter array size (Dedicated Usage) through PdhGetFormattedCounterArrayA");
-
-    items = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(bufferSize);
-    result = PdhGetFormattedCounterArrayA(pdh_dedicated_vram_counter_, PDH_FMT_LARGE, &bufferSize, &itemCount, items);
-
-    for (DWORD i = 0; i < itemCount; ++i) {
-        if (items != NULL && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
-            ProcessInfo info = {};
-            parseCounterToStruct(items[i].szName, info);
-            info.gpu.dedicated_vram_usage = items[i].FmtValue.largeValue;
-            process_list_[info.pid] = info;
-        }
-    }
-
-    free(items);
-    bufferSize = 0;
-
-    result = PdhGetFormattedCounterArrayA(pdh_shared_vram_counter_, PDH_FMT_LARGE, &bufferSize, &itemCount, nullptr);
-    if (result != PDH_MORE_DATA)
-        throw std::runtime_error("Failed to get formatted counter array size (Shared Usage) through PdhGetFormattedCounterArrayA");
-
-    items = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(bufferSize);
-    result = PdhGetFormattedCounterArrayA(pdh_shared_vram_counter_, PDH_FMT_LARGE, &bufferSize, &itemCount, items);
-
-    for (DWORD i = 0; i < itemCount; ++i) {
-        if (items != NULL && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
-            ProcessInfo info = {};
-            parseCounterToStruct(items[i].szName, info);
-            if (process_list_.find(info.pid) != process_list_.end()) {
-                process_list_[info.pid].gpu.shared_vram_usage = items[i].FmtValue.largeValue;
-            }
-        }
-    }
-
-    free(items);
-    bufferSize = 0;
-
-    result = PdhGetFormattedCounterArrayA(pdh_gpu_utilization_counter_, PDH_FMT_LARGE, &bufferSize, &itemCount, nullptr);
-    if (result != PDH_MORE_DATA)
-        throw std::runtime_error("Failed to get formatted counter array size (Utilization Percentage) through PdhGetFormattedCounterArrayA");
-
-    items = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(bufferSize);
-    result = PdhGetFormattedCounterArrayA(pdh_gpu_utilization_counter_, PDH_FMT_LARGE, &bufferSize, &itemCount, items);
-
-    for (DWORD i = 0; i < itemCount; ++i) {
-        if (items != NULL && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
-            ProcessInfo info = {};
-            auto idx = parseCounterToStruct(items[i].szName, info);
-            info.gpu.engines[idx].utilization_percentage = items[i].FmtValue.largeValue;
-            process_list_[info.pid].gpu.engines[idx] = info.gpu.engines[idx];
-        }
-    }
-
-    auto pidToName = [](uint64_t pid) -> std::string {
-        HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
-        if (!process)
-            return "";
-
-        char process_path[MAX_PATH]{};
-        DWORD path_len = MAX_PATH;
-        std::string name = "";
-        if (QueryFullProcessImageNameA(process, 0, process_path, &path_len)) {
-            std::string path(process_path);
-            size_t pos = path.find_last_of("\\/");
-            name = (pos == std::string::npos) ? path : path.substr(pos + 1);
-        }
-        CloseHandle(process);
-        return name;
-    };
+    calculateCpuMetricFromCounter(pdh_user_process_time_, CpuMetric_User_Time);
+    calculateCpuMetricFromCounter(pdh_kernel_process_time_, CpuMetric_Priviledged_Time);
+    calculateCpuMetricFromCounter(pdh_total_process_time_, CpuMetric_Total_Time);
 
     for (auto it = process_list_.begin(); it != process_list_.end(); ) {
-        it->second.process_name = pidToName(it->first);
         // If the process name is empty but allocates VRAM it's an system process
         // it's removed because Task Manager removes these processes as well.
         if (it->second.process_name.empty()) {
@@ -189,48 +114,22 @@ auto TaskMonitor::Update() -> void
         }
     }
 
-    free(items);
-    bufferSize = 0;
-
-    result = PdhGetFormattedCounterArrayA(pdh_cpu_utilization_counter_, PDH_FMT_LARGE, &bufferSize, &itemCount, nullptr);
-    if (result != PDH_MORE_DATA)
-        throw std::runtime_error("Failed to get formatted counter array size (Utilization Percentage) through PdhGetFormattedCounterArrayA");
-
-    items = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(bufferSize);
-    result = PdhGetFormattedCounterArrayA(pdh_cpu_utilization_counter_, PDH_FMT_LARGE, &bufferSize, &itemCount, items);
-
-    for (DWORD i = 0; i < itemCount; ++i) {
-        if (items != NULL && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
-            ProcessInfo info = {};
-            // name -> pid
-            for (const auto& process : process_list_) {
-                if (strstr(process.second.process_name.c_str(), items[i].szName)) {
-                    info.pid = process.second.pid;
-                    break;
+    for (auto& [pid, process] : process_list_) {
+        for (auto& [index, info] : process.gpus) {
+            IDXGIAdapter1* adapter = nullptr;
+            if (SUCCEEDED(dxgi_factory_->EnumAdapters1(index, &adapter))) {
+                DXGI_ADAPTER_DESC1 desc = {};
+                if (SUCCEEDED(adapter->GetDesc1(&desc))) {
+                    info.memory.dedicated_available = desc.DedicatedVideoMemory;
+                    info.memory.shared_available = desc.SharedSystemMemory;
                 }
+                adapter->Release();
             }
-
-            info.cpu = process_list_[info.pid].cpu;
-            info.cpu.utilization_percentages[info.cpu.total_processes] = items[i].FmtValue.largeValue;
-            info.cpu.total_processes += 1;
-            
-            if (info.pid > 0)
-                process_list_[info.pid].cpu = info.cpu;
         }
-    }
 
-    free(items);
-    bufferSize = 0;
-
-    SYSTEM_INFO system_info;
-    GetSystemInfo(&system_info);
-
-    float utilization_percentage = 0.0f;
-    for (auto it = process_list_.begin(); it != process_list_.end(); ) {
-		for (auto& u : it->second.cpu.utilization_percentages)
-            utilization_percentage += u.second;
-		it->second.cpu.utilization_percentage = utilization_percentage / system_info.dwNumberOfProcessors;
-        it++;
+        process.cpu.user_cpu_usage /= system_info_.dwNumberOfProcessors;
+        process.cpu.kernel_cpu_usage /= system_info_.dwNumberOfProcessors;
+        process.cpu.total_cpu_usage /= system_info_.dwNumberOfProcessors;
     }
 }
 
@@ -243,29 +142,166 @@ auto TaskMonitor::GetProcessInfoByPid(uint64_t pid) -> ProcessInfo
     return {};
 }
 
-auto TaskMonitor::GetVramUsageByGpuIndex(uint32_t index) -> VRAMInfo
+auto TaskMonitor::mapProcessesToPid(PDH_HCOUNTER counter) -> void
 {
-    HRESULT result = {};
+    PDH_STATUS result = {};
 
-    VRAMInfo info = {};
-    for (const auto& p : process_list_) {
-        info.dedicated_vram_usage += p.second.gpu.dedicated_vram_usage;
-        info.shared_vram_usage += p.second.gpu.shared_vram_usage;
-    }
+    DWORD bufferSize = 0;
+    DWORD itemCount = 0;
+    PDH_FMT_COUNTERVALUE_ITEM* items = nullptr;
 
-    IDXGIFactory6* factory = nullptr;
-    if (SUCCEEDED(CreateDXGIFactory1(__uuidof(IDXGIFactory6), (void**)&factory))) {
-        IDXGIAdapter1* adapter = nullptr;
-        if (SUCCEEDED(factory->EnumAdapters1(index, &adapter))) {
-            DXGI_ADAPTER_DESC1 desc = {};
-            if (SUCCEEDED(adapter->GetDesc1(&desc))) {
-                info.dedicated_available = desc.DedicatedVideoMemory;
-                info.shared_available = desc.SharedSystemMemory;
-            }
-            adapter->Release();
+    result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_LARGE, &bufferSize, &itemCount, nullptr);
+    if (result != PDH_MORE_DATA)
+        throw std::runtime_error("Failed to get formatted counter array size (Dedicated Usage) through PdhGetFormattedCounterArrayA");
+
+    items = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(bufferSize);
+    result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_LARGE, &bufferSize, &itemCount, items);
+
+    for (DWORD i = 0; i < itemCount; ++i) {
+        if (items != nullptr && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
+            process_list_[items[i].FmtValue.largeValue].process_name = items[i].szName;
         }
-        factory->Release();
     }
 
-    return info;
+    free(items);
+    bufferSize = 0;
+}
+
+auto TaskMonitor::calculateGpuMetricFromCounter(PDH_HCOUNTER counter, GpuMetric_Type type) -> void
+{
+    PDH_STATUS result = {};
+
+    auto parseCounterToStruct = [&](const std::string& name, LONGLONG& value) -> void {
+        std::stringstream stream(name);
+        std::string token;
+        std::vector<std::string> tokens;
+
+        while (std::getline(stream, token, '_'))
+            tokens.push_back(token);
+
+        uint32_t pid = 0;
+        uint32_t engine_index = 0;
+        int gpu_index = 0;
+
+        uint64_t luid_low = 0;
+        uint64_t luid_high = 0;
+        std::string engine_type;
+
+        for (size_t i = 0; i < tokens.size(); ++i) {
+            if (tokens[i] == "pid") {
+                pid = std::stoul(tokens[++i]);
+            }
+            else if (tokens[i] == "luid") {
+                luid_low = std::stoul(tokens[++i], nullptr, 16);
+                luid_high = std::stoull(tokens[++i], nullptr, 16);
+            }
+            else if (tokens[i] == "phys") {
+                gpu_index = std::stoi(tokens[++i]);
+            }
+            else if (tokens[i] == "eng") {
+                engine_index = std::stoi(tokens[++i]);
+            }
+            else if (tokens[i] == "engtype") {
+                engine_type = tokens[++i];
+            }
+        }
+
+        auto& gpu = process_list_[pid].gpus[gpu_index];
+
+        gpu.gpu_index = gpu_index;
+
+        gpu.luid.low = luid_low;
+        gpu.luid.high = luid_high;
+
+        auto& eng = gpu.engines[engine_index];
+        eng.engine_index = engine_index;
+
+        if (!engine_type.empty())
+            eng.engine_type = engine_type;
+
+        switch (type)
+        {
+        case GpuMetric_Dedicated_Vram:
+            gpu.memory.dedicated_vram_usage = value;
+            break;
+
+        case GpuMetric_Shared_Vram:
+            gpu.memory.shared_vram_usage = value;
+            break;
+
+        case GpuMetric_Engine_Utilization:
+            eng.utilization_percentage = value;
+            break;
+        }
+    };
+
+    DWORD bufferSize = 0;
+    DWORD itemCount = 0;
+    PDH_FMT_COUNTERVALUE_ITEM* items = nullptr;
+
+    result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_LARGE, &bufferSize, &itemCount, nullptr);
+    if (result != PDH_MORE_DATA)
+        throw std::runtime_error("Failed to get formatted counter array size (Dedicated Usage) through PdhGetFormattedCounterArrayA");
+
+    items = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(bufferSize);
+    result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_LARGE, &bufferSize, &itemCount, items);
+
+    for (DWORD i = 0; i < itemCount; ++i) {
+        if (items != NULL && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
+            parseCounterToStruct(items[i].szName, items[i].FmtValue.largeValue);
+        }
+    }
+
+    free(items);
+    bufferSize = 0;
+}
+
+auto TaskMonitor::calculateCpuMetricFromCounter(PDH_HCOUNTER counter, CpuMetric_Type type) -> void
+{
+    PDH_STATUS result = {};
+
+    auto pidFromName = [&](const std::string name) -> int {
+        for (auto& [pid, process] : process_list_) {
+            if (process.process_name == name) {
+                return pid;
+            }
+        }
+        return -1;
+    };
+
+    DWORD bufferSize = 0;
+    DWORD itemCount = 0;
+    PDH_FMT_COUNTERVALUE_ITEM* items = nullptr;
+
+    result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_DOUBLE | PDH_FMT_NOCAP100, &bufferSize, &itemCount, nullptr);
+    if (result != PDH_MORE_DATA)
+        throw std::runtime_error("Failed to get formatted counter array size (Dedicated Usage) through PdhGetFormattedCounterArrayA");
+
+    items = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(bufferSize);
+    result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_DOUBLE | PDH_FMT_NOCAP100, &bufferSize, &itemCount, items);
+
+    for (DWORD i = 0; i < itemCount; ++i) {
+        if (items != nullptr && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
+            uint32_t pid = pidFromName(items[i].szName);
+            if (pid != -1) {
+                if (strcmp(items[i].szName, "Idle") != 0 && strcmp(items[i].szName, "_Total") != 0) {
+                    switch (type)
+                    {
+                    case CpuMetric_User_Time:
+                        process_list_[pid].cpu.user_cpu_usage = items[i].FmtValue.doubleValue;
+                        break;
+                    case CpuMetric_Priviledged_Time:
+                        process_list_[pid].cpu.kernel_cpu_usage = items[i].FmtValue.doubleValue;
+                        break;
+                    case CpuMetric_Total_Time:
+                        process_list_[pid].cpu.total_cpu_usage = items[i].FmtValue.doubleValue;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    free(items);
+    bufferSize = 0;
 }
