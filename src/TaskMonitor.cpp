@@ -33,37 +33,48 @@ auto TaskMonitor::Initialize() -> void
 {
     PDH_STATUS result = {};
 
-    result = PdhOpenQueryA(NULL, 0, &pdh_query_);
-	if (result != ERROR_SUCCESS) 
-        throw std::runtime_error("Failed to open query through PdhOpenQueryA");
+    try {
+        result = PdhOpenQueryA(NULL, 0, &pdh_query_);
+        if (result != ERROR_SUCCESS)
+            throw std::runtime_error("Failed to open query through PdhOpenQueryA");
 
-    result = PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\Id Process", 0, &pdh_processes_id_counter_);
-    if (result != ERROR_SUCCESS)
-        throw std::runtime_error("Failed to register counter (Id Process) through PdhAddCounterA");
+        result = PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\Id Process", 0, &pdh_processes_id_counter_);
+        if (result != ERROR_SUCCESS)
+            throw std::runtime_error("Failed to register counter (Id Process) through PdhAddCounterA");
 
-    result = PdhAddEnglishCounterA(pdh_query_, "\\GPU Process Memory(*)\\Dedicated Usage", 0, &pdh_dedicated_vram_counter_);
-    if (result != ERROR_SUCCESS)
-        throw std::runtime_error("Failed to register counter (Dedicated Usage) through PdhAddCounterA");
+        result = PdhAddEnglishCounterA(pdh_query_, "\\GPU Process Memory(*)\\Dedicated Usage", 0, &pdh_dedicated_vram_counter_);
+        if (result != ERROR_SUCCESS)
+            throw std::runtime_error("Failed to register counter (Dedicated Usage) through PdhAddCounterA");
 
-    PdhAddEnglishCounterA(pdh_query_, "\\GPU Process Memory(*)\\Shared Usage", 0, &pdh_shared_vram_counter_);
-    if (result != ERROR_SUCCESS)
-        throw std::runtime_error("Failed to register counter (Shared Usage) through PdhAddCounterA");
+        PdhAddEnglishCounterA(pdh_query_, "\\GPU Process Memory(*)\\Shared Usage", 0, &pdh_shared_vram_counter_);
+        if (result != ERROR_SUCCESS)
+            throw std::runtime_error("Failed to register counter (Shared Usage) through PdhAddCounterA");
 
-    PdhAddEnglishCounterA(pdh_query_, "\\GPU Engine(*)\\Utilization Percentage", 0, &pdh_gpu_utilization_counter_);
-    if (result != ERROR_SUCCESS)
-        throw std::runtime_error("Failed to register counter (Utilization Percentage) through PdhAddCounterA");
+        PdhAddEnglishCounterA(pdh_query_, "\\GPU Engine(*)\\Utilization Percentage", 0, &pdh_gpu_utilization_counter_);
+        if (result != ERROR_SUCCESS)
+            throw std::runtime_error("Failed to register counter (Utilization Percentage) through PdhAddCounterA");
 
-    PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\% User Time", 0, &pdh_user_process_time_);
-    if (result != ERROR_SUCCESS)
-        throw std::runtime_error("Failed to register counter (User Time) through PdhAddCounterA");
+        PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\% User Time", 0, &pdh_user_process_time_);
+        if (result != ERROR_SUCCESS)
+            throw std::runtime_error("Failed to register counter (User Time) through PdhAddCounterA");
 
-    PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\% Privileged Time", 0, &pdh_kernel_process_time_);
-    if (result != ERROR_SUCCESS)
-        throw std::runtime_error("Failed to register counter (Privileged Time) through PdhAddCounterA");
+        PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\% Privileged Time", 0, &pdh_kernel_process_time_);
+        if (result != ERROR_SUCCESS)
+            throw std::runtime_error("Failed to register counter (Privileged Time) through PdhAddCounterA");
 
-    PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\% Processor Time", 0, &pdh_total_process_time_);
-    if (result != ERROR_SUCCESS)
-        throw std::runtime_error("Failed to register counter (Processor Time) through PdhAddCounterA");
+        PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\% Processor Time", 0, &pdh_total_process_time_);
+        if (result != ERROR_SUCCESS)
+            throw std::runtime_error("Failed to register counter (Processor Time) through PdhAddCounterA");
+    }
+    catch (std::exception& ex) {
+#ifdef _WIN32
+        char error_message[512] = {};
+        snprintf(error_message, 512, "Failed to initialize PDH counters.\nReason: %s\r\n", ex.what());
+        MessageBoxA(NULL, error_message, "OpenFps", MB_OK);
+#endif
+        printf("%s\n\n", ex.what());
+        std::exit(EXIT_FAILURE);
+    }
 
     GetSystemInfo(&system_info_);
     CreateDXGIFactory1(__uuidof(IDXGIFactory6), (void**)&dxgi_factory_);
