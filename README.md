@@ -13,8 +13,11 @@ OpenFps is an performance monitoring and utility tool for OpenVR compatible runt
 - CPU & GPU frame time metrics
 - Real-time FPS display
 - Reprojected & Dropped frame counter
-- VRAM monitoring
-	- See how much VRAM your application is using
+- Resource monitoring (Per-process)
+	- CPU usage
+	- GPU usage
+	- Dedicated & Shared VRAM usage
+	- Video Encoding Usage
  - Process List
 	- See which applications are using your computer resources
 - Display device battery percentages
