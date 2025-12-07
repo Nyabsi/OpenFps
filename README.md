@@ -36,6 +36,9 @@ OpenFps is an performance monitoring and utility tool for OpenVR compatible runt
 
 ## Usage
 
+> [!IMPORTANT]
+> OpenFps is still alpha-stage software, it may have bugs and quirks. If you encounter any issues or have an improvement suggestion make an issue.
+
 Head over to [Downloads](https://github.com/Nyabsi/OpenFps/releases) to install the latest version of OpenFps.
 
 To be able to read the graphs efficiently, please look at [Reading the Graph](https://github.com/Nyabsi/OpenFps/wiki/Reading-the-Graph) to understand what the colours imply.
