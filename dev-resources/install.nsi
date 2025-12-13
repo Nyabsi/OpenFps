@@ -6,8 +6,8 @@
 ;--------------------------------
 ; General Configuration
 
-!define APP_VERSION "1.3.1"
-!define APP_VERSION_META "1.3.0.1"
+!define APP_VERSION "1.4.0"
+!define APP_VERSION_META "1.4.0.0"
 !define APP_NAME "OpenFps"
 
 !define INSTALL_DIR "$PROGRAMFILES64\${APP_NAME}"
@@ -107,6 +107,7 @@ Section "Install" SecInstall
     File "${FILES_DIR}\LICENSE.txt"
     File "${FILES_DIR}\manifest.vrmanifest"
     File "${FILES_DIR}\thirdparty.txt"
+    File "${FILES_DIR}\icon.png"
 
     WriteRegStr HKLM "Software\${APP_NAME}\Main" "" $INSTDIR
     WriteUninstaller "$INSTDIR\Uninstall.exe"
@@ -130,6 +131,7 @@ Section "Uninstall"
     Delete "$INSTDIR\LICENSE.txt"
     Delete "$INSTDIR\manifest.vrmanifest"
     Delete "$INSTDIR\thirdparty.txt"
+    Delete "$INSTDIR\icon.png"
 
     DeleteRegKey HKLM "Software\${APP_NAME}"
     DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
