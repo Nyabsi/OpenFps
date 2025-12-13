@@ -20,7 +20,7 @@ endif()
 # Renderer configuration
 
 # Vulkan validation layer adds extra reporting that may also catch validation layers orginating from external sources, ie. SteamVR
-set(ENABLE_VULKAN_VALIDATION ON)
+set(ENABLE_VULKAN_VALIDATION OFF)
 
 set(OpenVR_ROOT ${CMAKE_SOURCE_DIR}/3rdparty/OpenVR)
 set(GLM_ROOT ${CMAKE_SOURCE_DIR}/3rdparty/glm)
