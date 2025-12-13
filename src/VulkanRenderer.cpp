@@ -461,7 +461,7 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, Overlay* overlay) -> v
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
         .clearValue = {
             .color = {
-                .float32 = {  0.0f, 0.0f, 0.0f, 1.0f },
+                .float32 = {  0.0f, 0.0f, 0.0f, 0.0f },
             },
         },
     };
