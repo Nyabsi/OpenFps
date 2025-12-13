@@ -1050,8 +1050,6 @@ auto HandOverlay::Update() -> void
             }
         }
     }
-
-    this->Draw();
 }
 
 auto HandOverlay::Destroy() -> void

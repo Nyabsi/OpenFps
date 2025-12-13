@@ -12,7 +12,7 @@
 
 #include <openvr.h>
 
-#include "VrOverlay.h"
+#include "Overlay.hpp"
 
 struct Vulkan_Frame;
 struct Vulkan_FrameSemaphore;
@@ -74,8 +74,8 @@ public:
     [[nodiscard]] auto DescriptorPool() const -> VkDescriptorPool { return vulkan_descriptor_pool_; }
     [[nodiscard]] auto PipelineCache() const -> VkPipelineCache { return vulkan_pipeline_cache_; }
 
-    auto SetupSurface(uint32_t width, uint32_t height, VkSurfaceFormatKHR format) -> void;
-    auto RenderSurface(ImDrawData* draw_data, VrOverlay* overlay) -> void;
+    auto SetupSurface(Overlay* overlay, uint32_t width, uint32_t height, VkSurfaceFormatKHR format) -> void;
+    auto RenderSurface(ImDrawData* draw_data, Overlay* overlay) -> void;
     auto DestroySurface(Vulkan_Surface* surface) const -> void;
 
     auto Destroy() const -> void;
@@ -93,7 +93,6 @@ private:
     std::vector<std::string> vulkan_device_extensions_;
     VkDebugReportCallbackEXT debug_report_;
     std::vector<VkPhysicalDevice> device_list_;
-    std::unique_ptr<Vulkan_Surface> surface_;
 
     // Vulkan function wrappers
     PFN_vkCmdBeginRenderingKHR f_vkCmdBeginRenderingKHR;

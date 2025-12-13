@@ -8,6 +8,7 @@
 #include <backends/imgui_impl_vulkan.h>
 
 #include <openvr.h>
+#include "Overlay.hpp"
 
 VulkanRenderer::VulkanRenderer() 
 {
@@ -27,7 +28,6 @@ VulkanRenderer::VulkanRenderer()
     device_list_.clear();
     f_vkCmdBeginRenderingKHR = nullptr;
     f_vkCmdEndRenderingKHR = nullptr;
-    surface_ = std::make_unique<Vulkan_Surface>();
 }
 
 auto VulkanRenderer::Initialize()  -> void
@@ -255,15 +255,15 @@ auto VulkanRenderer::Initialize()  -> void
     assert(f_vkCmdEndRenderingKHR != nullptr);
 }
 
-auto VulkanRenderer::SetupSurface(uint32_t width, uint32_t height, VkSurfaceFormatKHR format) -> void
+auto VulkanRenderer::SetupSurface(Overlay* overlay, uint32_t width, uint32_t height, VkSurfaceFormatKHR format) -> void
 {
     VkResult vk_result = {};
 
-    surface_->width = width;
-    surface_->height = height;
-    surface_->texture_format = format;
+    overlay->Surface()->width = width;
+    overlay->Surface()->height = height;
+    overlay->Surface()->texture_format = format;
     for (uint32_t i = 0; i < Vulkan_Surface::ImageCount; ++i)
-        surface_->first_use[i] = true;
+        overlay->Surface()->first_use[i] = true;
 
     for (uint32_t i = 0; i < Vulkan_Surface::ImageCount; ++i) 
     {
@@ -274,20 +274,20 @@ auto VulkanRenderer::SetupSurface(uint32_t width, uint32_t height, VkSurfaceForm
             .queueFamilyIndex = vulkan_queue_family_,
         };
 
-        vk_result = vkCreateCommandPool(vulkan_device_, &command_pool_create_info, vulkan_allocator_, &surface_->command_pools[i]);
+        vk_result = vkCreateCommandPool(vulkan_device_, &command_pool_create_info, vulkan_allocator_, &overlay->Surface()->command_pools[i]);
         VK_VALIDATE_RESULT(vk_result);
 
         VkCommandBufferAllocateInfo command_buffer_allocate_info = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-            .commandPool = surface_->command_pools[i],
+            .commandPool = overlay->Surface()->command_pools[i],
             .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
             .commandBufferCount = 1,
         };
 
-        vk_result = vkAllocateCommandBuffers(vulkan_device_, &command_buffer_allocate_info, &surface_->command_buffers[i]);
+        vk_result = vkAllocateCommandBuffers(vulkan_device_, &command_buffer_allocate_info, &overlay->Surface()->command_buffers[i]);
         VK_VALIDATE_RESULT(vk_result);
 
-        vkGetDeviceQueue(vulkan_device_, vulkan_queue_family_, 0, &surface_->queue);
+        vkGetDeviceQueue(vulkan_device_, vulkan_queue_family_, 0, &overlay->Surface()->queue);
 
         VkCommandBufferBeginInfo begin_info =
         {
@@ -295,18 +295,18 @@ auto VulkanRenderer::SetupSurface(uint32_t width, uint32_t height, VkSurfaceForm
             .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
         };
 
-        vk_result = vkBeginCommandBuffer(surface_->command_buffers[i], &begin_info);
+        vk_result = vkBeginCommandBuffer(overlay->Surface()->command_buffers[i], &begin_info);
         VK_VALIDATE_RESULT(vk_result);
 
         VkImageCreateInfo image_create_info =
         {
             .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
             .imageType = VK_IMAGE_TYPE_2D,
-            .format = surface_->texture_format.format,
+            .format = overlay->Surface()->texture_format.format,
             .extent =
             {
-                .width = surface_->width,
-                .height = surface_->height,
+                .width = overlay->Surface()->width,
+                .height = overlay->Surface()->height,
                 .depth = 1,
             },
             .mipLevels = 1,
@@ -317,7 +317,7 @@ auto VulkanRenderer::SetupSurface(uint32_t width, uint32_t height, VkSurfaceForm
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
         };
 
-        vk_result = vkCreateImage(vulkan_device_, &image_create_info, nullptr, &surface_->textures[i]);
+        vk_result = vkCreateImage(vulkan_device_, &image_create_info, nullptr, &overlay->Surface()->textures[i]);
         VK_VALIDATE_RESULT(vk_result);
 
         auto find_memory_type_index = [&](uint32_t type, VkMemoryPropertyFlags properties) -> uint32_t {
@@ -333,7 +333,7 @@ auto VulkanRenderer::SetupSurface(uint32_t width, uint32_t height, VkSurfaceForm
             };
 
         VkMemoryRequirements memory_requirements = {};
-        vkGetImageMemoryRequirements(vulkan_device_, surface_->textures[i], &memory_requirements);
+        vkGetImageMemoryRequirements(vulkan_device_, overlay->Surface()->textures[i], &memory_requirements);
 
         VkMemoryAllocateInfo memory_alloc_info =
         {
@@ -342,19 +342,19 @@ auto VulkanRenderer::SetupSurface(uint32_t width, uint32_t height, VkSurfaceForm
             .memoryTypeIndex = find_memory_type_index(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
         };
 
-        vk_result = vkAllocateMemory(vulkan_device_, &memory_alloc_info, nullptr, &surface_->texture_memories[i]);
+        vk_result = vkAllocateMemory(vulkan_device_, &memory_alloc_info, nullptr, &overlay->Surface()->texture_memories[i]);
         VK_VALIDATE_RESULT(vk_result);
 
-        vk_result = vkBindImageMemory(vulkan_device_, surface_->textures[i], surface_->texture_memories[i], 0);
+        vk_result = vkBindImageMemory(vulkan_device_, overlay->Surface()->textures[i], overlay->Surface()->texture_memories[i], 0);
         VK_VALIDATE_RESULT(vk_result);
 
 
         VkImageViewCreateInfo image_view_info =
         {
             .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .image = surface_->textures[i],
+            .image = overlay->Surface()->textures[i],
             .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = surface_->texture_format.format,
+            .format = overlay->Surface()->texture_format.format,
             .components = {
                 .r = VK_COMPONENT_SWIZZLE_R,
                 .g = VK_COMPONENT_SWIZZLE_G,
@@ -370,7 +370,7 @@ auto VulkanRenderer::SetupSurface(uint32_t width, uint32_t height, VkSurfaceForm
             },
         };
 
-        vk_result = vkCreateImageView(vulkan_device_, &image_view_info, vulkan_allocator_, &surface_->texture_views[i]);
+        vk_result = vkCreateImageView(vulkan_device_, &image_view_info, vulkan_allocator_, &overlay->Surface()->texture_views[i]);
         VK_VALIDATE_RESULT(vk_result);
 
         VkImageMemoryBarrier barrier =
@@ -382,7 +382,7 @@ auto VulkanRenderer::SetupSurface(uint32_t width, uint32_t height, VkSurfaceForm
             .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = surface_->textures[i],
+            .image = overlay->Surface()->textures[i],
             .subresourceRange =
             {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -393,7 +393,7 @@ auto VulkanRenderer::SetupSurface(uint32_t width, uint32_t height, VkSurfaceForm
             },
         };
 
-        vkCmdPipelineBarrier(surface_->command_buffers[i], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier(overlay->Surface()->command_buffers[i], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
         VkFenceCreateInfo fence_create_info =
         {
@@ -401,16 +401,16 @@ auto VulkanRenderer::SetupSurface(uint32_t width, uint32_t height, VkSurfaceForm
             .flags = VK_FENCE_CREATE_SIGNALED_BIT,
         };
 
-        vk_result = vkCreateFence(vulkan_device_, &fence_create_info, vulkan_allocator_, &surface_->fences[i]);
+        vk_result = vkCreateFence(vulkan_device_, &fence_create_info, vulkan_allocator_, &overlay->Surface()->fences[i]);
         VK_VALIDATE_RESULT(vk_result);
 
-        vk_result = vkEndCommandBuffer(surface_->command_buffers[i]);
+        vk_result = vkEndCommandBuffer(overlay->Surface()->command_buffers[i]);
         VK_VALIDATE_RESULT(vk_result);
 
         VkSubmitInfo submit_info = {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
             .commandBufferCount = 1,
-            .pCommandBuffers = &surface_->command_buffers[i],
+            .pCommandBuffers = &overlay->Surface()->command_buffers[i],
         };
 
         
@@ -424,7 +424,7 @@ auto VulkanRenderer::SetupSurface(uint32_t width, uint32_t height, VkSurfaceForm
         vk_result = vkCreateFence(vulkan_device_, &init_fence_info, nullptr, &init_fence);
         VK_VALIDATE_RESULT(vk_result);
 
-        vk_result = vkQueueSubmit(surface_->queue, 1, &submit_info, init_fence);
+        vk_result = vkQueueSubmit(overlay->Surface()->queue, 1, &submit_info, init_fence);
         VK_VALIDATE_RESULT(vk_result);
 
         vk_result = vkWaitForFences(vulkan_device_, 1, &init_fence, VK_TRUE, UINT64_MAX);
@@ -434,9 +434,9 @@ auto VulkanRenderer::SetupSurface(uint32_t width, uint32_t height, VkSurfaceForm
     }
 }
 
-auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay* overlay) -> void
+auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, Overlay* overlay) -> void
 {
-    uint32_t idx = surface_->frame_index;
+    uint32_t idx = overlay->Surface()->frame_index;
 
     if (!overlay->IsVisible())
         return;
@@ -452,7 +452,7 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay* overlay) ->
     VkRenderingAttachmentInfoKHR color_attachment =
     {
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-        .imageView = surface_->texture_views[idx],
+        .imageView = overlay->Surface()->texture_views[idx],
         .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         .resolveMode = VK_RESOLVE_MODE_NONE_KHR,
         .resolveImageView = VK_NULL_HANDLE,
@@ -473,8 +473,8 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay* overlay) ->
          {
             .extent =
             {
-                .width = surface_->width,
-                .height = surface_->height,
+                .width = overlay->Surface()->width,
+                .height = overlay->Surface()->height,
             },
         },
         .layerCount = 1,
@@ -485,19 +485,19 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay* overlay) ->
         .pStencilAttachment = nullptr,
     };
 
-    vk_result = vkWaitForFences(vulkan_device_, 1, &surface_->fences[idx], VK_TRUE, UINT64_MAX);
+    vk_result = vkWaitForFences(vulkan_device_, 1, &overlay->Surface()->fences[idx], VK_TRUE, UINT64_MAX);
     VK_VALIDATE_RESULT(vk_result);
 
-    vk_result = vkResetFences(vulkan_device_, 1, &surface_->fences[idx]);
+    vk_result = vkResetFences(vulkan_device_, 1, &overlay->Surface()->fences[idx]);
     VK_VALIDATE_RESULT(vk_result);
 
-    vk_result = vkResetCommandPool(vulkan_device_, surface_->command_pools[idx], 0); VK_VALIDATE_RESULT(vk_result);
+    vk_result = vkResetCommandPool(vulkan_device_, overlay->Surface()->command_pools[idx], 0); VK_VALIDATE_RESULT(vk_result);
     VK_VALIDATE_RESULT(vk_result);
 
-    vk_result = vkBeginCommandBuffer(surface_->command_buffers[idx], &buffer_begin_info);
+    vk_result = vkBeginCommandBuffer(overlay->Surface()->command_buffers[idx], &buffer_begin_info);
     VK_VALIDATE_RESULT(vk_result);
 
-    if (!surface_->first_use[idx]) {
+    if (!overlay->Surface()->first_use[idx]) {
         VkImageMemoryBarrier barrier_restore = {
             .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
             .srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
@@ -506,7 +506,7 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay* overlay) ->
             .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
             .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image = surface_->textures[idx],
+            .image = overlay->Surface()->textures[idx],
             .subresourceRange = {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                 .baseMipLevel = 0,
@@ -517,7 +517,7 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay* overlay) ->
         };
 
         vkCmdPipelineBarrier(
-            surface_->command_buffers[idx],
+            overlay->Surface()->command_buffers[idx],
             VK_PIPELINE_STAGE_TRANSFER_BIT,
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             0,
@@ -527,13 +527,13 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay* overlay) ->
         );
     }
     else {
-        surface_->first_use[idx] = false;
+        overlay->Surface()->first_use[idx] = false;
     }
 
 
-    f_vkCmdBeginRenderingKHR(surface_->command_buffers[idx], &rendering_info);
-    ImGui_ImplVulkan_RenderDrawData(draw_data, surface_->command_buffers[idx]);
-    f_vkCmdEndRenderingKHR(surface_->command_buffers[idx]);
+    f_vkCmdBeginRenderingKHR(overlay->Surface()->command_buffers[idx], &rendering_info);
+    ImGui_ImplVulkan_RenderDrawData(draw_data, overlay->Surface()->command_buffers[idx]);
+    f_vkCmdEndRenderingKHR(overlay->Surface()->command_buffers[idx]);
 
     VkImageMemoryBarrier barrier_optimal =
     {
@@ -544,7 +544,7 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay* overlay) ->
         .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = surface_->textures[idx],
+        .image = overlay->Surface()->textures[idx],
         .subresourceRange =
         {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -555,32 +555,32 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay* overlay) ->
         },
     };
 
-    vkCmdPipelineBarrier(surface_->command_buffers[idx], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier_optimal);
+    vkCmdPipelineBarrier(overlay->Surface()->command_buffers[idx], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier_optimal);
 
-    vk_result = vkEndCommandBuffer(surface_->command_buffers[idx]);
+    vk_result = vkEndCommandBuffer(overlay->Surface()->command_buffers[idx]);
     VK_VALIDATE_RESULT(vk_result);
 
     VkSubmitInfo submit_info_barrier =
     {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .commandBufferCount = 1,
-        .pCommandBuffers = &surface_->command_buffers[idx],
+        .pCommandBuffers = &overlay->Surface()->command_buffers[idx],
     };
 
-    vk_result = vkQueueSubmit(surface_->queue, 1, &submit_info_barrier, surface_->fences[idx]);
+    vk_result = vkQueueSubmit(overlay->Surface()->queue, 1, &submit_info_barrier, overlay->Surface()->fences[idx]);
     VK_VALIDATE_RESULT(vk_result);
 
     vr::VRVulkanTextureData_t vulkanTexure =
     {
-        .m_nImage = (uintptr_t)surface_->textures[idx],
+        .m_nImage = (uintptr_t)overlay->Surface()->textures[idx],
         .m_pDevice = vulkan_device_,
         .m_pPhysicalDevice = vulkan_physical_device_,
         .m_pInstance = vulkan_instance_,
         .m_pQueue = vulkan_queue_,
         .m_nQueueFamilyIndex = (uint32_t)vulkan_queue_family_,
-        .m_nWidth = surface_->width,
-        .m_nHeight = surface_->height,
-        .m_nFormat = (uint32_t)surface_->texture_format.format,
+        .m_nWidth = overlay->Surface()->width,
+        .m_nHeight = overlay->Surface()->height,
+        .m_nFormat = (uint32_t)overlay->Surface()->texture_format.format,
         .m_nSampleCount = VK_SAMPLE_COUNT_1_BIT,
     };
 
@@ -599,7 +599,7 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay* overlay) ->
         return;
     }
 
-    surface_->frame_index = (surface_->frame_index + 1) % Vulkan_Surface::ImageCount;
+    overlay->Surface()->frame_index = (overlay->Surface()->frame_index + 1) % Vulkan_Surface::ImageCount;
 }
 
 auto VulkanRenderer::DestroySurface(Vulkan_Surface* surface) const -> void

@@ -13,6 +13,8 @@
 
 Overlay::Overlay(const std::string& appKey, const std::string& name, vr::VROverlayType type, int width, int height) : VrOverlay()
 {
+    surface_ = std::make_unique<Vulkan_Surface>();
+
     try {
         char overlay_key[100];
         snprintf(overlay_key, 100, "%s-%d", appKey.c_str(), std::rand() % 1024);
@@ -198,7 +200,8 @@ Overlay::Overlay(const std::string& appKey, const std::string& name, vr::VROverl
     };
 
     ImGui_ImplVulkan_Init(&init_info);
-    g_vulkanRenderer->SetupSurface(width, height, surface_format);
+
+    g_vulkanRenderer->SetupSurface(this, width, height, surface_format);
 }
 
 Overlay::~Overlay()
