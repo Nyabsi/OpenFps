@@ -19,7 +19,7 @@ Settings::Settings()
 auto Settings::Load() -> void
 {
     std::string settingsPath = {};
-    settingsPath += SDL_GetCurrentDirectory();
+    settingsPath += SDL_GetPrefPath("Nyabsi", "OpenFps");
     settingsPath += "settings.json";
 
     std::ifstream file(settingsPath);
@@ -42,7 +42,7 @@ auto Settings::Load() -> void
 auto Settings::Save() -> void
 {
     std::string settingsPath = {};
-    settingsPath += SDL_GetCurrentDirectory();
+    settingsPath += SDL_GetPrefPath("Nyabsi", "OpenFps");
     settingsPath += "settings.json";
 
     nlohmann::json j;
