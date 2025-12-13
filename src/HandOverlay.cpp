@@ -93,6 +93,8 @@ auto HandOverlay::Initialize() -> void
 
 auto HandOverlay::Render() -> void
 {
+    ImGui::SetCurrentContext(this->Context());
+
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplOpenVR_NewFrame();
     ImGui::NewFrame();
@@ -106,10 +108,6 @@ auto HandOverlay::Render() -> void
     ImGui::Begin("OpenFps", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove);
 
     if ((!vr::VROverlay()->IsHoverTargetOverlay(this->Handle()) && !io.WantTextInput) || !vr::VROverlay()->IsDashboardVisible()) {
-
-        size_t splitIndex = tracked_devices_.size() / 2;
-        auto tracker_batteries_low = std::vector(tracked_devices_.begin(), tracked_devices_.begin() + splitIndex);
-        auto tracker_batteries_high = std::vector(tracked_devices_.begin() + splitIndex, tracked_devices_.end());
 
         ImGuiStyle& style = ImGui::GetStyle();
 
@@ -691,138 +689,6 @@ auto HandOverlay::Render() -> void
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("Process List")) {
-                ImGui::BeginChild("process_list_scroller", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
-
-                ImGuiTableFlags flags =
-                    ImGuiTableFlags_Borders |
-                    ImGuiTableFlags_RowBg |
-                    ImGuiTableFlags_Resizable |
-                    ImGuiTableFlags_Hideable |
-                    ImGuiTableFlags_SizingStretchProp |
-                    ImGuiTableFlags_Sortable;
-
-                if (ImGui::BeginTable("process_list", 8, flags))
-                {
-                    ImGui::TableSetupColumn("PID");
-                    ImGui::TableSetupColumn("Name");
-                    ImGui::TableSetupColumn("CPU %");
-                    ImGui::TableSetupColumn("GPU %");
-                    ImGui::TableSetupColumn("Video %");
-                    ImGui::TableSetupColumn("D-VRAM");
-                    ImGui::TableSetupColumn("S-VRAM");
-                    ImGui::TableSetupColumn("Actions");
-                    ImGui::TableHeadersRow();
-
-                    std::vector<std::pair<uint64_t, ProcessInfo>> rows;
-                    rows.reserve(task_monitor_.Processes().size());
-                    for (auto& kv : task_monitor_.Processes())
-                        rows.push_back(kv);
-
-                    if (ImGuiTableSortSpecs* sortSpecs = ImGui::TableGetSortSpecs())
-                    {
-                        const ImGuiTableColumnSortSpecs& s = sortSpecs->Specs[0];
-
-                        std::sort(rows.begin(), rows.end(), [&](const auto& a, const auto& b)
-                        {
-                            const auto& infoA = a.second;
-                            const auto& infoB = b.second;
-
-                            GpuInfo gpuA = getCurrentlyUsedGpu(infoA);
-                            GpuInfo gpuB = getCurrentlyUsedGpu(infoB);
-
-                            switch (s.ColumnIndex)
-                                {
-                                case 0:
-                                    return (s.SortDirection == ImGuiSortDirection_Ascending)
-                                        ? a.first < b.first
-                                        : a.first > b.first;
-
-                                case 1:
-                                    return (s.SortDirection == ImGuiSortDirection_Ascending)
-                                        ? infoA.process_name < infoB.process_name
-                                        : infoA.process_name > infoB.process_name;
-
-                                case 2:
-                                    return (s.SortDirection == ImGuiSortDirection_Ascending)
-                                        ? infoA.cpu.total_cpu_usage < infoB.cpu.total_cpu_usage
-                                        : infoA.cpu.total_cpu_usage > infoB.cpu.total_cpu_usage;
-
-                                case 3:
-                                {
-                                    float ga = gpuPercentage(gpuA);
-                                    float gb = gpuPercentage(gpuB);
-                                    return (s.SortDirection == ImGuiSortDirection_Ascending) ? ga < gb : ga > gb;
-                                }
-                                case 4:
-                                {
-                                    float ga = gpuVideoPercentage(gpuA);
-                                    float gb = gpuVideoPercentage(gpuB);
-                                    return (s.SortDirection == ImGuiSortDirection_Ascending) ? ga < gb : ga > gb;
-                                }
-                                case 5:
-                                {
-                                    auto da = gpuA.memory.dedicated_vram_usage;
-                                    auto db = gpuB.memory.dedicated_vram_usage;
-                                    return (s.SortDirection == ImGuiSortDirection_Ascending) ? da < db : da > db;
-                                }
-                                case 6:
-                                {
-                                    auto sa = getCurrentlyUsedGpu(infoA).memory.shared_vram_usage;
-                                    auto sb = getCurrentlyUsedGpu(infoB).memory.shared_vram_usage;
-                                    return (s.SortDirection == ImGuiSortDirection_Ascending) ? sa < sb : sa > sb;
-                                }
-                            }
-                            return false;
-                        });
-                    }
-
-                    for (auto& [pid, info] : rows)
-                    {
-                        ImGui::TableNextRow();
-
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("%llu", pid);
-
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::Text("%s", info.process_name.c_str());
-
-                        ImGui::TableSetColumnIndex(2);
-                        ImGui::Text("%.1f %%", info.cpu.total_cpu_usage);
-
-                        auto gpu = getCurrentlyUsedGpu(info);
-
-                        ImGui::TableSetColumnIndex(3);
-                        ImGui::Text("%.1f %%", gpuPercentage(gpu));
-
-                        ImGui::TableSetColumnIndex(4);
-                        ImGui::Text("%.1f %%", gpuVideoPercentage(gpu));
-
-                        ImGui::TableSetColumnIndex(5);
-                        ImGui::Text("%.0f MB", gpu.memory.dedicated_vram_usage / (1000.0f * 1000.0f));
-
-                        ImGui::TableSetColumnIndex(6);
-                        ImGui::Text("%.0f MB", gpu.memory.shared_vram_usage / (1000.0f * 1000.0f));
-
-                        ImGui::TableSetColumnIndex(7);
-                        ImGui::PushID(pid);
-                        if (ImGui::Button("Kill")) {
-                            HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
-                            if (process) {
-                                TerminateProcess(process, 0);
-                                CloseHandle(process);
-                            }
-                        }
-                        ImGui::PopID();
-                    }
-
-                    ImGui::EndTable();
-                }
-
-                ImGui::EndChild();
-                ImGui::EndTabItem();
-            }
-
             ImGui::EndTabBar();
         }
     }
@@ -834,6 +700,8 @@ auto HandOverlay::Render() -> void
 
 auto HandOverlay::Update() -> void
 {
+    Overlay::Update();
+
     vr::Compositor_FrameTiming timings =
     {
         .m_nSize = sizeof(vr::Compositor_FrameTiming)

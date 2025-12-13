@@ -30,6 +30,7 @@
 #include "VulkanUtils.h"
 
 #include "HandOverlay.h"
+#include "DashboardOverlay.h"
 
 #include "VrOverlay.h"
 #include "VrUtils.h"
@@ -43,6 +44,7 @@ extern "C" __declspec(dllexport) unsigned long AmdPowerXpressRequestHighPerforma
 
 VulkanRenderer* g_vulkanRenderer = new VulkanRenderer();
 static HandOverlay* g_performanceOverlay;
+static DashboardOverlay* g_ProcessList;
 
 static uint64_t g_last_frame_time = SDL_GetTicksNS();
 static float g_hmd_refresh_rate = 24.0f;
@@ -105,6 +107,8 @@ int main(
     g_performanceOverlay = new HandOverlay();
     g_performanceOverlay->Initialize();
 
+    g_ProcessList = new DashboardOverlay();
+
     UpdateApplicationRefreshRate();
 
     try {
@@ -137,10 +141,8 @@ int main(
 
     while (g_ticking)
     {
-        while (vr::VROverlay()->PollNextOverlayEvent(g_performanceOverlay->Handle(), &vr_event, sizeof(vr_event)))
+        while (vr::VRSystem()->PollNextEvent(&vr_event, sizeof(vr_event)))
         {
-            ImGui_ImplOpenVR_ProcessOverlayEvent(vr_event);
-
             switch (vr_event.eventType) 
             {
                 case vr::VREvent_PropertyChanged:
@@ -208,6 +210,12 @@ int main(
             g_performanceOverlay->Draw();
         }
 
+        if (g_ProcessList->IsVisible()) {
+            g_ProcessList->Update();
+            g_ProcessList->Render();
+            g_ProcessList->Draw();
+        }
+
         uint64_t target_time = static_cast<uint64_t>((static_cast<float>(1000000000) / g_hmd_refresh_rate));
         const uint64_t frame_duration = (SDL_GetTicksNS() - g_last_frame_time);
 
@@ -223,6 +231,10 @@ int main(
     VK_VALIDATE_RESULT(vk_result);
 
     g_performanceOverlay->Destroy();
+    g_ProcessList->Destroy();
+
+    g_vulkanRenderer->DestroySurface(g_performanceOverlay->Surface());
+    g_vulkanRenderer->DestroySurface(g_ProcessList->Surface());
     g_vulkanRenderer->Destroy();
 
     SDL_Quit();

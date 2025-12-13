@@ -44,6 +44,7 @@ add_executable(openfps
     "src/VulkanRenderer.cpp"
     "src/Overlay.cpp"
     "src/HandOverlay.cpp"
+    "src/DashboardOverlay.cpp"
     "src/TaskMonitor.cpp"
     "src/Settings.cpp"
 )

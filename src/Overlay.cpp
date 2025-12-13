@@ -32,7 +32,9 @@ Overlay::Overlay(const std::string& appKey, const std::string& name, vr::VROverl
 
     IMGUI_CHECKVERSION();
 
-    ImGui::CreateContext();
+    context_ = ImGui::CreateContext();
+    ImGui::SetCurrentContext(this->Context());
+
     ImGuiIO& io = ImGui::GetIO();
 
     io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
@@ -138,7 +140,7 @@ Overlay::Overlay(const std::string& appKey, const std::string& name, vr::VROverl
     style.ScaleAllSizes(1.0f);
     style.FontScaleDpi = 1.0f;
 
-    style.Alpha = 0.5f;
+    style.Alpha = 0.85f;
 
     if (io.ConfigFlags & ImGuiConfigFlags_IsSRGB) {
         // hack: ImGui doesn't handle sRGB colour spaces properly so convert from Linear -> sRGB
@@ -221,11 +223,18 @@ auto Overlay::Render() -> void
 
 auto Overlay::Update() -> void
 {
-    assert(false && "Did you forget to override \'Update\' for Overlay?!");
+    ImGui::SetCurrentContext(this->Context());
+
+    vr::VREvent_t vr_event = {};
+    while (vr::VROverlay()->PollNextOverlayEvent(this->Handle(), &vr_event, sizeof(vr_event)))
+    {
+        ImGui_ImplOpenVR_ProcessOverlayEvent(vr_event);
+    }
 }
 
 auto Overlay::Draw() -> void
 {
+    ImGui::SetCurrentContext(this->Context());
     ImDrawData* draw_data = ImGui::GetDrawData();
     g_vulkanRenderer->RenderSurface(draw_data, this);
 }
