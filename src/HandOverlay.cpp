@@ -1,4 +1,4 @@
-﻿#include "PerformanceOverlay.h"
+﻿#include "HandOverlay.h"
 
 #include <imgui.h>
 #include <backends/imgui_impl_vulkan.h>
@@ -8,15 +8,21 @@
 #include <implot.h>
 #include <algorithm>
 
+#include "ImHelper.h"
 #include "VrUtils.h"
 #include <map>
 #include <thread>
 
-PerformanceOverlay::PerformanceOverlay()
+#define OVERLAY_KEY     "Nyabsi.OpenFps"
+#define OVERLAY_NAME    "OpenFps Hand"
+#define OVERLAY_WIDTH   420
+#define OVERLAY_HEIGHT  220
+
+HandOverlay::HandOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::VROverlayType_World, OVERLAY_WIDTH, OVERLAY_HEIGHT)
 {
     frame_time_ = {};
     refresh_rate_ = {};
-    overlay_ = nullptr;
+    last_pid = {};
     cpu_frame_times_ = {};
     gpu_frame_times_ = {};
     tracked_devices_ = {};
@@ -29,6 +35,7 @@ PerformanceOverlay::PerformanceOverlay()
     total_dropped_frames_ = {};
     total_predicted_frames_ = {};
     total_missed_frames_ = {};
+    total_throttled_frames_ = {};
     total_frames_ = {};
     cpu_frame_time_ms_ = {};
     gpu_frame_time_ms_ = {};
@@ -49,101 +56,13 @@ PerformanceOverlay::PerformanceOverlay()
     colour_mask_ = {};
 }
 
-auto PerformanceOverlay::Initialize(VulkanRenderer*& renderer, VrOverlay*& overlay, int width, int height) -> void
+auto HandOverlay::Initialize() -> void
 {
-    overlay_ = overlay;
+    this->SetInputMethod(vr::VROverlayInputMethod_Mouse);
+    this->EnableFlag(vr::VROverlayFlags_SendVRDiscreteScrollEvents);
+    this->EnableFlag(vr::VROverlayFlags_EnableClickStabilization);
 
-    IMGUI_CHECKVERSION();
-
-    ImGui::CreateContext();
     ImPlot::CreateContext();
-
-    ImGuiIO& io = ImGui::GetIO();
-
-    io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
-    io.ConfigFlags  |= ImGuiConfigFlags_IsSRGB;
-
-    io.IniFilename = nullptr;
-
-    ImGui::StyleColorsDark();
-
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.WindowRounding = 10.0f;
-    style.FrameRounding = 10.0f;
-    style.Alpha = 0.5f;
-
-    // style.Colors[ImGuiCol_WindowBg] = ImVec4();
-
-    style.ScaleAllSizes(1.0f);
-    style.FontScaleDpi = 1.0f;
-
-    if (io.ConfigFlags & ImGuiConfigFlags_IsSRGB) {
-        // hack: ImGui doesn't handle sRGB colour spaces properly so convert from Linear -> sRGB
-        // https://github.com/ocornut/imgui/issues/8271#issuecomment-2564954070
-        // remove when these are merged:
-        //  https://github.com/ocornut/imgui/pull/8110
-        //  https://github.com/ocornut/imgui/pull/8111
-        for (int i = 0; i < ImGuiCol_COUNT; i++) {
-            ImVec4& col = style.Colors[i];
-            col.x = col.x <= 0.04045f ? col.x / 12.92f : pow((col.x + 0.055f) / 1.055f, 2.4f);
-            col.y = col.y <= 0.04045f ? col.y / 12.92f : pow((col.y + 0.055f) / 1.055f, 2.4f);
-            col.z = col.z <= 0.04045f ? col.z / 12.92f : pow((col.z + 0.055f) / 1.055f, 2.4f);
-        }
-    }
-
-    ImGui_ImplOpenVR_InitInfo openvr_init_info =
-    {
-        .handle = overlay->Handle(),
-        .width = width,
-        .height = height
-    };
-
-    ImGui_ImplOpenVR_Init(&openvr_init_info);
-
-    VkSurfaceFormatKHR surface_format =
-    {
-        .format = VK_FORMAT_R8G8B8A8_SRGB,
-        .colorSpace = VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT
-    };
-
-    VkPipelineRenderingCreateInfoKHR pipeline_rendering_create_info = 
-    {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR,
-        .viewMask = 0,
-        .colorAttachmentCount = 1,
-        .pColorAttachmentFormats = &surface_format.format,
-        .depthAttachmentFormat = VK_FORMAT_UNDEFINED,
-        .stencilAttachmentFormat = VK_FORMAT_UNDEFINED,
-    };
-
-    ImGui_ImplVulkan_InitInfo init_info = {
-        .ApiVersion = VK_API_VERSION_1_3,
-        .Instance = renderer->Instance(),
-        .PhysicalDevice = renderer->PhysicalDevice(),
-        .Device = renderer->Device(),
-        .QueueFamily = renderer->QueueFamily(),
-        .Queue = renderer->Queue(),
-        .DescriptorPool = renderer->DescriptorPool(),
-        .RenderPass = VK_NULL_HANDLE,
-        .MinImageCount = 16,
-        .ImageCount = 16,
-        .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
-        .PipelineCache = renderer->PipelineCache(),
-        .Subpass = 0,
-        .UseDynamicRendering = true,
-        .PipelineRenderingCreateInfo = pipeline_rendering_create_info,
-        .Allocator = renderer->Allocator(),
-        .CheckVkResultFn = nullptr,
-    };
-
-    ImGui_ImplVulkan_Init(&init_info);
-    renderer->SetupSurface(width, height, surface_format);
-
-    cpu_frame_times_.resize(static_cast<int>(refresh_rate_));
-    gpu_frame_times_.resize(static_cast<int>(refresh_rate_));
-
-    memset(cpu_frame_times_.data(), 0x0, cpu_frame_times_.size() * sizeof(FrameTimeInfo));
-    memset(gpu_frame_times_.data(), 0x0, cpu_frame_times_.size() * sizeof(FrameTimeInfo));
 
     task_monitor_.Initialize();
 
@@ -172,7 +91,7 @@ auto PerformanceOverlay::Initialize(VulkanRenderer*& renderer, VrOverlay*& overl
     this->UpdateDeviceTransform();
 }
 
-auto PerformanceOverlay::Draw() -> void
+auto HandOverlay::Render() -> void
 {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplOpenVR_NewFrame();
@@ -186,7 +105,7 @@ auto PerformanceOverlay::Draw() -> void
 
     ImGui::Begin("OpenFps", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove);
 
-    if ((!vr::VROverlay()->IsHoverTargetOverlay(overlay_->Handle()) && !io.WantTextInput) || !vr::VROverlay()->IsDashboardVisible()) {
+    if ((!vr::VROverlay()->IsHoverTargetOverlay(this->Handle()) && !io.WantTextInput) || !vr::VROverlay()->IsDashboardVisible()) {
 
         size_t splitIndex = tracked_devices_.size() / 2;
         auto tracker_batteries_low = std::vector(tracked_devices_.begin(), tracked_devices_.begin() + splitIndex);
@@ -197,34 +116,51 @@ auto PerformanceOverlay::Draw() -> void
         GpuInfo gpu_info = {};
 		ProcessInfo process_info = {};
 
+        ImGui::Indent(10.0f);
         auto pid = GetCurrentGamePid();
         if (pid > 0) {
+            if (last_pid != pid) {
+                this->Reset();
+                last_pid = pid;
+            }
 			process_info = task_monitor_.GetProcessInfoByPid(pid);
             gpu_info = getCurrentlyUsedGpu(process_info);
             ImGui::Text("Current Application: %s (%d)", process_info.process_name.c_str(), pid);
         }
         else {
-			ImGui::Text("Current Application: N/A");
+			ImGui::Text("Current Application: SteamVR Void");
         }
+        ImGui::Unindent(10.0f);
 
         ImGui::Spacing();
 
         auto avail = ImGui::GetContentRegionAvail();
-        auto childSize = ImVec2((avail.x / 2) - style.FramePadding.x, (avail.y / 3) - style.FramePadding.y);
+        auto childSize = ImVec2((avail.x / 2) - style.FramePadding.x, (avail.y / 2) - style.FramePadding.y);
 
         if (ImGui::BeginChild("##metrics_info", childSize, ImGuiChildFlags_None)) {
             if (ImGui::BeginTable("##cpu_frametime", 2, ImGuiTableFlags_SizingStretchProp)) {
+                ImGui::Indent(10.0f);
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("CPU Frametime");
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%.1f ms", cpu_frame_time_avg_);
-
                 ImGui::EndTable();
+                ImGui::Unindent(10.0f);
             }
 
             ImVec2 plotSize = ImGui::GetContentRegionAvail();
-            if (ImPlot::BeginPlot("##frameplotimer", plotSize, ImPlotFlags_CanvasOnly | ImPlotFlags_NoFrame)) {
+
+            static double t = 0.0;
+            t += ImGui::GetIO().DeltaTime;
+
+            const int frame_count = static_cast<int>(refresh_rate_);
+            const float frame_dt = 1.0f / refresh_rate_;
+            const double history = frame_count * frame_dt;
+
+            if (ImPlot::BeginPlot("##frameplotimer", plotSize,
+                ImPlotFlags_CanvasOnly | ImPlotFlags_NoFrame)) {
+
                 ImPlot::SetupAxes(
                     nullptr,
                     nullptr,
@@ -232,14 +168,16 @@ auto PerformanceOverlay::Draw() -> void
                     ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_NoTickMarks | ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoMenus | ImPlotAxisFlags_NoHighlight | ImPlotAxisFlags_NoSideSwitch | ImPlotAxisFlags_Lock
                 );
 
+                // HACK: frame_dt * 2.0f ensures history buffer is enough to fill the entire plot
+                ImPlot::SetupAxisLimits(ImAxis_X1, -(history - (frame_dt * 2.0f)), 0.0, ImGuiCond_Always);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, 0.0, frame_time_ * 2.0, ImGuiCond_Always);
+
                 static double y_ticks[1] = { frame_time_ };
                 ImPlot::SetupAxisTicks(ImAxis_Y1, y_ticks, 1, nullptr, false);
-                ImPlot::SetupAxisLimits(ImAxis_Y1, 0.0f, frame_time_ * 2, ImGuiCond_Always);
 
                 for (int i = 0; i < static_cast<int>(refresh_rate_) - 1; ++i) {
 
-                    ImVec4 color = {};
-
+                    ImVec4 color;
                     if (cpu_frame_times_[i].flags & FrameTimeInfo_Flags_Reprojecting)
                         color = Color_Orange;
                     else if (cpu_frame_times_[i].flags & FrameTimeInfo_Flags_MotionSmoothingEnabled)
@@ -257,7 +195,7 @@ auto PerformanceOverlay::Draw() -> void
 
                     color.w *= 0.5f;
 
-                    float seg_x[2] = { static_cast<float>(i), static_cast<float>(i + 1) };
+                    float seg_x[2] = { -i * frame_dt, -(i + 1) * frame_dt };
                     float seg_y[2] = { cpu_frame_times_[i].frametime, cpu_frame_times_[i + 1].frametime };
                     constexpr float seg_ybase[2] = { 0.0f, 0.0f };
 
@@ -276,14 +214,22 @@ auto PerformanceOverlay::Draw() -> void
 
         if (ImGui::BeginChild("##metrics_info2", childSize, ImGuiChildFlags_None)) {
             if (ImGui::BeginTable("##gpu_frametime", 2, ImGuiTableFlags_SizingStretchProp)) {
+                ImGui::Indent(10.0f);
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("GPU Frametime");
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%.1f ms", gpu_frame_time_avg_);
-
+                ImGui::Unindent(10.0f);
                 ImGui::EndTable();
             }
+
+            static double t = 0.0;
+            t += ImGui::GetIO().DeltaTime;
+
+            const int frame_count = static_cast<int>(refresh_rate_);
+            const float frame_dt = 1.0f / refresh_rate_;
+            const double history = frame_count * frame_dt;
 
             ImVec2 plotSize = ImGui::GetContentRegionAvail();
             if (ImPlot::BeginPlot("Frametime Spikes GPU", plotSize, ImPlotFlags_CanvasOnly | ImPlotFlags_NoFrame)) {
@@ -294,9 +240,11 @@ auto PerformanceOverlay::Draw() -> void
                     ImPlotAxisFlags_AutoFit | ImPlotAxisFlags_NoLabel | ImPlotAxisFlags_NoTickMarks | ImPlotAxisFlags_NoTickLabels | ImPlotAxisFlags_NoMenus | ImPlotAxisFlags_NoHighlight | ImPlotAxisFlags_NoSideSwitch | ImPlotAxisFlags_Lock
                 );
 
+                ImPlot::SetupAxisLimits(ImAxis_X1, -(history - (frame_dt * 2.0f)), 0.0, ImGuiCond_Always);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, 0.0, frame_time_ * 2.0, ImGuiCond_Always);
+
                 static double y_ticks[1] = { frame_time_ };
                 ImPlot::SetupAxisTicks(ImAxis_Y1, y_ticks, 1, nullptr, false);
-                ImPlot::SetupAxisLimits(ImAxis_Y1, 0.0f, frame_time_ * 2, ImGuiCond_Always);
 
                 for (int i = 0; i < static_cast<int>(refresh_rate_) - 1; ++i) {
 
@@ -315,7 +263,7 @@ auto PerformanceOverlay::Draw() -> void
 
                     color.w *= 0.5f;
 
-                    float seg_x[2] = { static_cast<float>(i), static_cast<float>(i + 1) };
+                    float seg_x[2] = { -i * frame_dt, -(i + 1) * frame_dt };
                     float seg_y[2] = { gpu_frame_times_[i].frametime, gpu_frame_times_[i + 1].frametime };
                     constexpr float seg_ybase[2] = { 0.0f, 0.0f };
 
@@ -331,11 +279,25 @@ auto PerformanceOverlay::Draw() -> void
         }
 
         avail = ImGui::GetContentRegionAvail();
-        childSize = ImVec2((avail.x / 2) - style.FramePadding.x, (avail.y / 2.5) - style.FramePadding.y);
+        childSize = ImVec2((avail.x / 2) - style.FramePadding.x, avail.y - style.FramePadding.y);
 
         if (ImGui::BeginChild("##metrics_info3", childSize, ImGuiChildFlags_None)) {
 
             if (ImGui::BeginTable("##metrics_extra", 2, ImGuiTableFlags_SizingStretchProp)) {
+                ImGui::Indent(10.0f);
+
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("CPU");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%.1f %%", process_info.cpu.total_cpu_usage);
+
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("FPS");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextColored(bottleneck_flags_& BottleneckSource_Flags_GPU ? Color_Orange : Color_White, "%1.f", current_fps_);
+
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("Missed");
@@ -344,27 +306,17 @@ auto PerformanceOverlay::Draw() -> void
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("FPS");
+                ImGui::Text("Dropped");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::TextColored(bottleneck_flags_ & BottleneckSource_Flags_GPU ? Color_Orange : Color_White, "%1.f", current_fps_);
+                ImGui::TextColored(Color_Red, "%d Frames", total_dropped_frames_);
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("Total");
+                ImGui::Text("Throttled");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%d Frames", total_frames_);
+                ImGui::TextColored(Color_Red, "%d Frames", total_throttled_frames_);
 
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("D-VRAM Usage");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.0f MB / %.0f MB", static_cast<float>(gpu_info.memory.dedicated_vram_usage) / (1000.0f * 1000.0f), static_cast<float>(gpu_info.memory.dedicated_available) / (1024.0f * 1024.0f));
-
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("CPU");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.1f %%", process_info.cpu.total_cpu_usage);
+                ImGui::Unindent(10.0f);
 
                 ImGui::EndTable();
             }
@@ -379,11 +331,37 @@ auto PerformanceOverlay::Draw() -> void
 
 
             if (ImGui::BeginTable("##metrics_extra3", 2, ImGuiTableFlags_SizingStretchProp)) {
+                ImGui::Indent(10.0f);
+
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("Dropped");
+                ImGui::Text("GPU");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::TextColored(Color_Red, "%d Frames", total_dropped_frames_);
+                ImGui::Text("%.1f %%", gpuPercentage(gpu_info));
+
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("D-VRAM");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text(
+                    "%.0f MB (%.1f%%)",
+                    gpu_info.memory.dedicated_vram_usage / (1024.0f * 1024.0f),
+                    gpu_info.memory.dedicated_available > 0
+                    ? (gpu_info.memory.dedicated_vram_usage * 100.0f) / gpu_info.memory.dedicated_available
+                    : 0.0f
+                );
+
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("S-VRAM");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text(
+                    "%.0f MB (%.1f%%)",
+                    gpu_info.memory.shared_vram_usage / (1024.0f * 1024.0f),
+                    gpu_info.memory.shared_available > 0
+                    ? (gpu_info.memory.shared_vram_usage * 100.0f) / gpu_info.memory.shared_available
+                    : 0.0f
+                );
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
@@ -393,78 +371,19 @@ auto PerformanceOverlay::Draw() -> void
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("Transmit Latency");
+                ImGui::Text("W-Latency");
                 ImGui::TableSetColumnIndex(1);
                 if (wireless_latency_ > 0.0f)
                     ImGui::TextColored(Color_LightBlue, "%.1f ms", wireless_latency_);
                 else
                     ImGui::TextColored(Color_Magenta, "N/A");
-
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("S-VRAM Usage");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.0f MB / %.0f MB", static_cast<float>(gpu_info.memory.shared_vram_usage) / (1000.0f * 1000.0f), static_cast<float>(gpu_info.memory.shared_available) / (1024.0f * 1024.0f));
-
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("GPU");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.1f %%", gpuPercentage(gpu_info));
+                ImGui::Unindent(10.0f);
 
                 ImGui::EndTable();
             }
 
             ImGui::EndChild();
         }
-
-        avail = ImGui::GetContentRegionAvail();
-        childSize = ImVec2((avail.x / 2) - style.FramePadding.x, avail.y - style.FramePadding.y);
-        auto childSizeTotal = ImVec2(avail.x, avail.y);
-
-        ImGui::BeginChild("##battery_section", childSizeTotal, ImGuiChildFlags_None);
-
-        ImGui::BeginChild("##battery_section_high", childSize, ImGuiChildFlags_None);
-        if (ImGui::BeginTable("##batteries_high", 2, ImGuiTableFlags_SizingStretchProp)) {
-            for (auto& tracker : tracker_batteries_high) {
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("(%d) %s", tracker.device_id, tracker.device_label.c_str());
-
-                ImGui::TableSetColumnIndex(1);
-                if (tracker.battery_percentage <= 0.2f)
-                    ImGui::TextColored(Color_Yellow, "%d%%", (int)(tracker.battery_percentage * 100));
-                else if (tracker.battery_percentage <= 0.1f)
-                    ImGui::TextColored(Color_Red, "%d%%", (int)(tracker.battery_percentage * 100));
-                else
-                    ImGui::Text("%d%%", (int)(tracker.battery_percentage * 100));
-            }
-            ImGui::EndTable();
-        }
-        ImGui::EndChild();
-
-        ImGui::SameLine();
-
-        ImGui::BeginChild("##battery_section_low", childSize, ImGuiChildFlags_None);
-        if (ImGui::BeginTable("##batteries_low", 2, ImGuiTableFlags_SizingStretchProp)) {
-            for (auto& tracker : tracker_batteries_low) {
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("(%d) %s", tracker.device_id, tracker.device_label.c_str());
-
-                ImGui::TableSetColumnIndex(1);
-                if (tracker.battery_percentage <= 0.2f)
-                    ImGui::TextColored(Color_Yellow, "%d%%", (int)(tracker.battery_percentage * 100));
-                else if (tracker.battery_percentage <= 0.1f)
-                    ImGui::TextColored(Color_Red, "%d%%", (int)(tracker.battery_percentage * 100));
-                else
-                    ImGui::Text("%d%%", (int)(tracker.battery_percentage * 100));
-            }
-            ImGui::EndTable();
-        }
-
-        ImGui::EndChild();
-        ImGui::EndChild();
     }
     else {
         if (ImGui::BeginTabBar("##settings")) {
@@ -477,13 +396,13 @@ auto PerformanceOverlay::Draw() -> void
                     ImGui::TableSetColumnIndex(1);
                     ImGui::SameLine();
                     if (ImGui::Button("Dashboard")) {
-                        overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
+                        this->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
                         display_mode_ = Overlay_DisplayMode_Dashboard;
 						settings_.SetDisplayMode(display_mode_);
                     }
                     ImGui::SameLine();
                     if (ImGui::Button("Always")) {
-                        overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
+                        this->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
                         display_mode_ = Overlay_DisplayMode_Always;
 						settings_.SetDisplayMode(display_mode_);
                     }
@@ -494,7 +413,7 @@ auto PerformanceOverlay::Draw() -> void
                     ImGui::TableSetColumnIndex(1);
                     ImGui::SameLine();
                     if (ImGui::InputFloat("##overlay_scale", &overlay_scale_, 0.05f, 0.0f, "%.2f")) {
-                        overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
+                        this->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
 						settings_.SetOverlayScale(overlay_scale_);
                     }
 
@@ -519,7 +438,7 @@ auto PerformanceOverlay::Draw() -> void
                             bool is_selected = (selected_handedness == i);
                             if (ImGui::Selectable(handedness_types[i], is_selected)) {
                                 selected_handedness = i;
-                                overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
+                                this->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
                                 handedness_ = selected_handedness + 1;
                                 this->UpdateDeviceTransform();
 								settings_.SetHandedness(handedness_);
@@ -542,7 +461,7 @@ auto PerformanceOverlay::Draw() -> void
                             bool is_selected = (selected_position == i);
                             if (ImGui::Selectable(positions[i], is_selected)) {
                                 position_ = i;
-                                overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
+                                this->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
                                 this->UpdateDeviceTransform();
                                 selected_position = i;
 								settings_.SetPosition(position_);
@@ -554,6 +473,48 @@ auto PerformanceOverlay::Draw() -> void
                     ImGui::EndTable();
                 }
 
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Devices")) {
+                ImGui::BeginChild("process_list_scroller", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+
+                ImGuiTableFlags flags =
+                    ImGuiTableFlags_Borders |
+                    ImGuiTableFlags_RowBg |
+                    ImGuiTableFlags_SizingStretchProp;
+
+                if (ImGui::BeginTable("device_list", 3, flags))
+                {
+                    ImGui::TableSetupColumn("ID");
+                    ImGui::TableSetupColumn("Name");
+                    ImGui::TableSetupColumn("Battery %");
+                    ImGui::TableHeadersRow();
+
+                    for (auto& device : tracked_devices_)
+                    {
+                        ImGui::TableNextRow();
+
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::Text("%llu", device.device_id);
+
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%s", device.device_label.c_str());
+
+
+                        ImGui::TableSetColumnIndex(2);
+                        if (device.battery_percentage <= 0.2f)
+                            ImGui::TextColored(Color_Yellow, "%d%%", (int)(device.battery_percentage * 100));
+                        else if (device.battery_percentage <= 0.1f)
+                            ImGui::TextColored(Color_Red, "%d%%", (int)(device.battery_percentage * 100));
+                        else
+                            ImGui::Text("%d%%", (int)(device.battery_percentage * 100));
+                    }
+
+                    ImGui::EndTable();
+                }
+
+                ImGui::EndChild();
                 ImGui::EndTabItem();
             }
 
@@ -586,7 +547,7 @@ auto PerformanceOverlay::Draw() -> void
                         if (last_ss_scale != ss_scale_) {
                             vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_SupersampleScale_Float, ss_scale_ / 100.0f);
                             last_ss_scale = ss_scale_;
-							overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
+							this->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
                         }
                     }
 
@@ -611,7 +572,7 @@ auto PerformanceOverlay::Draw() -> void
                         ImGui::TableSetColumnIndex(1);
                         ImGui::SameLine();
                         if (ImGui::InputFloat("##color_temparature", &color_temp_, 1000.0f, 0.0f, "%.0f K")) {
-                            overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
+                            this->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
                         }
 
                         ImGui::TableNextRow();
@@ -620,14 +581,14 @@ auto PerformanceOverlay::Draw() -> void
                         ImGui::TableSetColumnIndex(1);
                         ImGui::SameLine();
                         if (ImGui::InputFloat("##color_temparature_strength", &color_brightness_, 10.0f, 0.0f, "%.0f %%")) {
-                            overlay_->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
+                            this->TriggerLaserMouseHapticVibration(0.005f, 150.0f, 1.0f);
                         }
 
                         if (color_brightness_ < 10.0f)
                             color_brightness_ = 10.0f;
 
-                        if (color_brightness_ > 200.0f)
-                            color_brightness_ = 200.0f;
+                        if (color_brightness_ > 300.0f)
+                            color_brightness_ = 300.0f;
 
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
@@ -871,7 +832,7 @@ auto PerformanceOverlay::Draw() -> void
     ImGui::Render();
 }
 
-auto PerformanceOverlay::Update() -> void
+auto HandOverlay::Update() -> void
 {
     vr::Compositor_FrameTiming timings =
     {
@@ -952,6 +913,7 @@ auto PerformanceOverlay::Update() -> void
         total_missed_frames_ += timings.m_nNumMisPresented;
         total_predicted_frames_ += predicted_frames;
         total_dropped_frames_ += timings.m_nNumDroppedFrames;
+        total_throttled_frames_ += throttled_frames;
         total_frames_ += timings.m_nNumFramePresents;
 
         if (timings.m_flTransferLatencyMs > 0.0f) {
@@ -1040,7 +1002,7 @@ auto PerformanceOverlay::Update() -> void
             c_properties.CheckConnection();
             int32_t type = c_properties.GetInt32(vr::Prop_DeviceClass_Int32);
 
-            std::string name = {};
+            std::string name = { "-" };
 
             if (type == vr::TrackedDeviceClass_HMD) {
                 name = "Headset";
@@ -1088,26 +1050,39 @@ auto PerformanceOverlay::Update() -> void
             }
         }
     }
+
+    this->Draw();
 }
 
-auto PerformanceOverlay::Destroy() -> void
+auto HandOverlay::Destroy() -> void
 {
     free(colour_mask_);
 
     task_monitor_.Destroy();
 
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplOpenVR_Shutdown();
-    ImGui::DestroyContext();
+    ImPlot::DestroyContext();
 }
 
-auto PerformanceOverlay::SetFrameTime(float refresh_rate) -> void
+auto HandOverlay::Reset() -> void
+{
+    cpu_frame_times_.resize(static_cast<int>(refresh_rate_));
+    gpu_frame_times_.resize(static_cast<int>(refresh_rate_));
+
+    memset(cpu_frame_times_.data(), 0x0, cpu_frame_times_.size() * sizeof(FrameTimeInfo));
+    memset(gpu_frame_times_.data(), 0x0, cpu_frame_times_.size() * sizeof(FrameTimeInfo));
+
+    frame_index_ = 0;
+}
+
+auto HandOverlay::SetFrameTime(float refresh_rate) -> void
 {
     frame_time_ = 1000.0f / refresh_rate;
     refresh_rate_ = refresh_rate;
+
+    this->Reset();
 }
 
-auto PerformanceOverlay::UpdateDeviceTransform() -> void
+auto HandOverlay::UpdateDeviceTransform() -> void
 {
     glm::vec3 position = {};
     glm::quat rotation = {};

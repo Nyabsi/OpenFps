@@ -4,21 +4,10 @@
 
 #include <imgui.h>
 
-#include "VulkanRenderer.h"
 #include "VrOverlay.h"
+#include "Overlay.hpp"
 #include "TaskMonitor.hpp"
 #include "Settings.hpp"
-
-#define IMGUI_NORMALIZED_RGBA(r, g, b, a) ImVec4(((r) / 255.0f), ((g) / 255.0f), ((b) / 255.0f), ((a) / 255.0f))
-
-constexpr auto Color_Green = IMGUI_NORMALIZED_RGBA(0, 255, 0, 255);         /* 0, 255, 0          */
-constexpr auto Color_Orange = IMGUI_NORMALIZED_RGBA(255, 64, 0, 255);       /* 255, 128, 0        */
-constexpr auto Color_LightBlue = IMGUI_NORMALIZED_RGBA(0, 128, 255, 255);   /* 0, 128, 255        */
-constexpr auto Color_White = IMGUI_NORMALIZED_RGBA(255, 255, 255, 255);     /* 255, 255, 255, 255 */
-constexpr auto Color_Red = IMGUI_NORMALIZED_RGBA(255, 0, 0, 255);           /* 255, 0, 0          */
-constexpr auto Color_Yellow = IMGUI_NORMALIZED_RGBA(255, 255, 0, 255);      /* 255, 255, 0        */
-constexpr auto Color_Magenta = IMGUI_NORMALIZED_RGBA(255, 0, 255, 255);     /* 255, 0, 255        */
-constexpr auto Color_Purple = IMGUI_NORMALIZED_RGBA(128, 0, 255, 255);      /* 128, 0, 255        */
 
 enum FrameTimeInfo_Flags : uint32_t {
     FrameTimeInfo_Flags_None = 0,
@@ -60,21 +49,21 @@ struct OverlayTransform {
     glm::quat rotation = {};
 };
 
-class PerformanceOverlay
+class HandOverlay : public Overlay
 {
 public:
-    explicit PerformanceOverlay();
-    auto Initialize(VulkanRenderer*& renderer, VrOverlay*& overlay, int width, int height) -> void;
+    explicit HandOverlay();
+    auto Initialize() -> void;
 
-    [[nodiscard]] auto OverlayData() -> Vulkan_Surface* { return reinterpret_cast<Vulkan_Surface*>(&overlay_data_); };
     [[nodiscard]] auto DisplayMode() const -> Overlay_DisplayMode { return display_mode_; }
     [[nodiscard]] auto OverlayScale() const -> float { return overlay_scale_; }
     [[nodiscard]] auto Handedness() const -> int { return handedness_; }
     [[nodiscard]] auto Transform() const -> OverlayTransform { return transform_; }
 
-    auto Draw() -> void;
-    auto Update() -> void;
+    auto Render() -> void override;
+    auto Update() -> void override;
     auto Destroy() -> void;
+    auto Reset() -> void;
 
     auto SetFrameTime(float refresh_rate) -> void;
 private:
@@ -85,9 +74,8 @@ private:
 
     float frame_time_;
     float refresh_rate_;
+    uint32_t last_pid;
 
-    VrOverlay* overlay_;
-    Vulkan_Surface overlay_data_;
     Overlay_DisplayMode display_mode_;
     OverlayTransform transform_;
 
@@ -104,6 +92,7 @@ private:
     uint32_t total_dropped_frames_;
     uint32_t total_predicted_frames_;
     uint32_t total_missed_frames_;
+    uint32_t total_throttled_frames_;
     uint32_t total_frames_;
     float cpu_frame_time_ms_;
     float gpu_frame_time_ms_;

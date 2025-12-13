@@ -20,7 +20,7 @@ endif()
 # Renderer configuration
 
 # Vulkan validation layer adds extra reporting that may also catch validation layers orginating from external sources, ie. SteamVR
-set(ENABLE_VULKAN_VALIDATION OFF)
+set(ENABLE_VULKAN_VALIDATION ON)
 
 set(OpenVR_ROOT ${CMAKE_SOURCE_DIR}/3rdparty/OpenVR)
 set(GLM_ROOT ${CMAKE_SOURCE_DIR}/3rdparty/glm)
@@ -42,7 +42,8 @@ message(STATUS "ENABLE_VULKAN_VALIDATION = ${ENABLE_VULKAN_VALIDATION}")
 add_executable(openfps
     "src/Main.cpp"
     "src/VulkanRenderer.cpp"
-    "src/PerformanceOverlay.cpp"
+    "src/Overlay.cpp"
+    "src/HandOverlay.cpp"
     "src/TaskMonitor.cpp"
     "src/Settings.cpp"
 )
