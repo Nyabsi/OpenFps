@@ -33,24 +33,30 @@ struct Vulkan_FrameSemaphore
     VkSemaphore render_complete_semaphore;
 };
 
-struct Vulkan_Surface 
+struct Vulkan_Surface
 {
+    static constexpr uint32_t ImageCount = 3;
+
     uint32_t width;
     uint32_t height;
     VkSurfaceFormatKHR texture_format;
-    VkCommandPool command_pool;
-    VkCommandBuffer command_buffer;
-    VkFence fence;
-    VkImage texture;
-    VkImageView texture_view;
-    VkDeviceMemory texture_memory;
+
     VkQueue queue;
-    bool clear_enable;
-    VkClearValue clear_value;
+    uint32_t frame_index;
+
+
+    VkCommandPool command_pools[ImageCount];
+    VkCommandBuffer command_buffers[ImageCount];
+    VkImage textures[ImageCount];
+    VkImageView texture_views[ImageCount];
+    VkDeviceMemory texture_memories[ImageCount];
+    VkFence fences[ImageCount];
+    bool first_use[ImageCount];
 
     Vulkan_Surface()
     {
-        memset((void*)this, 0, sizeof(*this));
+        memset(this, 0, sizeof(*this));
+        frame_index = 0;
     }
 };
 
@@ -69,7 +75,7 @@ public:
     [[nodiscard]] auto PipelineCache() const -> VkPipelineCache { return vulkan_pipeline_cache_; }
 
     auto SetupSurface(uint32_t width, uint32_t height, VkSurfaceFormatKHR format) -> void;
-    auto RenderSurface(ImDrawData* draw_data, VrOverlay*& overlay) -> void;
+    auto RenderSurface(ImDrawData* draw_data, VrOverlay* overlay) -> void;
     auto DestroySurface(Vulkan_Surface* surface) const -> void;
 
     auto Destroy() const -> void;
@@ -93,3 +99,5 @@ private:
     PFN_vkCmdBeginRenderingKHR f_vkCmdBeginRenderingKHR;
     PFN_vkCmdEndRenderingKHR f_vkCmdEndRenderingKHR;
 };
+
+extern VulkanRenderer* g_vulkanRenderer;

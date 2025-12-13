@@ -198,10 +198,17 @@ auto VulkanRenderer::Initialize()  -> void
         .pQueuePriorities = &queue_priority
     };
 
+    VkPhysicalDeviceTimelineSemaphoreFeatures timeline_semaphore_features =
+    {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES,
+        .timelineSemaphore = VK_TRUE,
+    };
+
     VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_features =
     {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR,
-        .dynamicRendering = true,
+        .pNext = &timeline_semaphore_features,
+        .dynamicRendering = VK_TRUE,
     };
 
     VkDeviceCreateInfo device_create_info = 
@@ -222,7 +229,7 @@ auto VulkanRenderer::Initialize()  -> void
     VkDescriptorPoolSize pool_sizes[] = {
         {
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 
-            IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE
+            8
         },
     };
 
@@ -230,7 +237,7 @@ auto VulkanRenderer::Initialize()  -> void
     {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-        .maxSets = 0,
+        .maxSets = 8,
     };
 
     for (VkDescriptorPoolSize& pool_size : pool_sizes)
@@ -255,166 +262,182 @@ auto VulkanRenderer::SetupSurface(uint32_t width, uint32_t height, VkSurfaceForm
     surface_->width = width;
     surface_->height = height;
     surface_->texture_format = format;
-    surface_->clear_enable = true;
+    for (uint32_t i = 0; i < Vulkan_Surface::ImageCount; ++i)
+        surface_->first_use[i] = true;
 
-    VkCommandPoolCreateInfo command_pool_create_info =
+    for (uint32_t i = 0; i < Vulkan_Surface::ImageCount; ++i) 
     {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .flags = 0,
-        .queueFamilyIndex = vulkan_queue_family_,
-    };
-
-    vk_result = vkCreateCommandPool(vulkan_device_, &command_pool_create_info, vulkan_allocator_, &surface_->command_pool);
-    VK_VALIDATE_RESULT(vk_result);
-
-    VkCommandBufferAllocateInfo command_buffer_allocate_info = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = surface_->command_pool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1,
-    };
-
-    vk_result = vkAllocateCommandBuffers(vulkan_device_, &command_buffer_allocate_info, &surface_->command_buffer);
-    VK_VALIDATE_RESULT(vk_result);
-
-    VkFenceCreateInfo fence_create_info =
-    {
-        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-        .flags = VK_FENCE_CREATE_SIGNALED_BIT,
-    };
-
-    vk_result = vkCreateFence(vulkan_device_, &fence_create_info, vulkan_allocator_, &surface_->fence);
-    VK_VALIDATE_RESULT(vk_result);
-
-    vk_result = vkWaitForFences(vulkan_device_, 1, &surface_->fence, VK_TRUE, UINT64_MAX);
-    VK_VALIDATE_RESULT(vk_result);
-
-    vk_result = vkResetFences(vulkan_device_, 1, &surface_->fence);
-    VK_VALIDATE_RESULT(vk_result);
-
-    vkGetDeviceQueue(vulkan_device_, vulkan_queue_family_, 0, &surface_->queue);
-
-    VkCommandBufferBeginInfo begin_info =
-    {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
-    };
-
-    vk_result = vkBeginCommandBuffer(surface_->command_buffer, &begin_info);
-    VK_VALIDATE_RESULT(vk_result);
-
-    VkImageCreateInfo image_create_info =
-    {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-        .imageType = VK_IMAGE_TYPE_2D,
-        .format = surface_->texture_format.format,
-        .extent =
+        VkCommandPoolCreateInfo command_pool_create_info =
         {
-            .width = surface_->width,
-            .height = surface_->height,
-            .depth = 1,
-        },
-        .mipLevels = 1,
-        .arrayLayers = 1,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-        .tiling = VK_IMAGE_TILING_OPTIMAL,
-        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
-    };
+            .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+            .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+            .queueFamilyIndex = vulkan_queue_family_,
+        };
 
-    vk_result = vkCreateImage(vulkan_device_, &image_create_info, nullptr, &surface_->texture);
-    VK_VALIDATE_RESULT(vk_result);
+        vk_result = vkCreateCommandPool(vulkan_device_, &command_pool_create_info, vulkan_allocator_, &surface_->command_pools[i]);
+        VK_VALIDATE_RESULT(vk_result);
 
-    auto find_memory_type_index = [&](uint32_t type, VkMemoryPropertyFlags properties) -> uint32_t {
-        VkPhysicalDeviceMemoryProperties memory_requirements = {};
-        vkGetPhysicalDeviceMemoryProperties(vulkan_physical_device_, &memory_requirements);
+        VkCommandBufferAllocateInfo command_buffer_allocate_info = {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandPool = surface_->command_pools[i],
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = 1,
+        };
 
-        for (uint32_t i = 0; i < memory_requirements.memoryTypeCount; i++) {
-            if ((type & (1 << i)) && (memory_requirements.memoryTypes[i].propertyFlags & properties) == properties) {
-                return i;
+        vk_result = vkAllocateCommandBuffers(vulkan_device_, &command_buffer_allocate_info, &surface_->command_buffers[i]);
+        VK_VALIDATE_RESULT(vk_result);
+
+        vkGetDeviceQueue(vulkan_device_, vulkan_queue_family_, 0, &surface_->queue);
+
+        VkCommandBufferBeginInfo begin_info =
+        {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+        };
+
+        vk_result = vkBeginCommandBuffer(surface_->command_buffers[i], &begin_info);
+        VK_VALIDATE_RESULT(vk_result);
+
+        VkImageCreateInfo image_create_info =
+        {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .format = surface_->texture_format.format,
+            .extent =
+            {
+                .width = surface_->width,
+                .height = surface_->height,
+                .depth = 1,
+            },
+            .mipLevels = 1,
+            .arrayLayers = 1,
+            .samples = VK_SAMPLE_COUNT_1_BIT,
+            .tiling = VK_IMAGE_TILING_OPTIMAL,
+            .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
+        };
+
+        vk_result = vkCreateImage(vulkan_device_, &image_create_info, nullptr, &surface_->textures[i]);
+        VK_VALIDATE_RESULT(vk_result);
+
+        auto find_memory_type_index = [&](uint32_t type, VkMemoryPropertyFlags properties) -> uint32_t {
+            VkPhysicalDeviceMemoryProperties memory_requirements = {};
+            vkGetPhysicalDeviceMemoryProperties(vulkan_physical_device_, &memory_requirements);
+
+            for (uint32_t i = 0; i < memory_requirements.memoryTypeCount; i++) {
+                if ((type & (1 << i)) && (memory_requirements.memoryTypes[i].propertyFlags & properties) == properties) {
+                    return i;
+                }
             }
-        }
-        throw std::runtime_error("Failed to find suitable memory type!");
-    };
+            throw std::runtime_error("Failed to find suitable memory type!");
+            };
 
-    VkMemoryRequirements memory_requirements = {};
-    vkGetImageMemoryRequirements(vulkan_device_, surface_->texture, &memory_requirements);
+        VkMemoryRequirements memory_requirements = {};
+        vkGetImageMemoryRequirements(vulkan_device_, surface_->textures[i], &memory_requirements);
 
-    VkMemoryAllocateInfo memory_alloc_info =
-    {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = memory_requirements.size,
-        .memoryTypeIndex = find_memory_type_index(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
-    };
-
-    vk_result = vkAllocateMemory(vulkan_device_, &memory_alloc_info, nullptr, &surface_->texture_memory);
-    VK_VALIDATE_RESULT(vk_result);
-
-    vk_result = vkBindImageMemory(vulkan_device_, surface_->texture, surface_->texture_memory, 0);
-    VK_VALIDATE_RESULT(vk_result);
-
-
-    VkImageViewCreateInfo image_view_info =
-    {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .image = surface_->texture,
-        .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        .format = surface_->texture_format.format,
-        .components = {
-            .r = VK_COMPONENT_SWIZZLE_R,
-            .g = VK_COMPONENT_SWIZZLE_G,
-            .b = VK_COMPONENT_SWIZZLE_B,
-            .a = VK_COMPONENT_SWIZZLE_A,
-        },
-        .subresourceRange = {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-        },
-    };
-
-    vk_result = vkCreateImageView(vulkan_device_, &image_view_info, vulkan_allocator_, &surface_->texture_view);
-    VK_VALIDATE_RESULT(vk_result);
-
-    VkImageMemoryBarrier barrier =
-    {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .srcAccessMask = 0,
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = surface_->texture,
-        .subresourceRange =
+        VkMemoryAllocateInfo memory_alloc_info =
         {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-        },
-    };
+            .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+            .allocationSize = memory_requirements.size,
+            .memoryTypeIndex = find_memory_type_index(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+        };
 
-    vkCmdPipelineBarrier(surface_->command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vk_result = vkAllocateMemory(vulkan_device_, &memory_alloc_info, nullptr, &surface_->texture_memories[i]);
+        VK_VALIDATE_RESULT(vk_result);
 
-    vk_result = vkEndCommandBuffer(surface_->command_buffer);
-    VK_VALIDATE_RESULT(vk_result);
+        vk_result = vkBindImageMemory(vulkan_device_, surface_->textures[i], surface_->texture_memories[i], 0);
+        VK_VALIDATE_RESULT(vk_result);
 
-    VkSubmitInfo submit_info = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &surface_->command_buffer,
-    };
 
-    vk_result = vkQueueSubmit(surface_->queue, 1, &submit_info, surface_->fence);
-    VK_VALIDATE_RESULT(vk_result);
+        VkImageViewCreateInfo image_view_info =
+        {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = surface_->textures[i],
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = surface_->texture_format.format,
+            .components = {
+                .r = VK_COMPONENT_SWIZZLE_R,
+                .g = VK_COMPONENT_SWIZZLE_G,
+                .b = VK_COMPONENT_SWIZZLE_B,
+                .a = VK_COMPONENT_SWIZZLE_A,
+            },
+            .subresourceRange = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+        };
+
+        vk_result = vkCreateImageView(vulkan_device_, &image_view_info, vulkan_allocator_, &surface_->texture_views[i]);
+        VK_VALIDATE_RESULT(vk_result);
+
+        VkImageMemoryBarrier barrier =
+        {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .srcAccessMask = 0,
+            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = surface_->textures[i],
+            .subresourceRange =
+            {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+        };
+
+        vkCmdPipelineBarrier(surface_->command_buffers[i], VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+        VkFenceCreateInfo fence_create_info =
+        {
+            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+            .flags = VK_FENCE_CREATE_SIGNALED_BIT,
+        };
+
+        vk_result = vkCreateFence(vulkan_device_, &fence_create_info, vulkan_allocator_, &surface_->fences[i]);
+        VK_VALIDATE_RESULT(vk_result);
+
+        vk_result = vkEndCommandBuffer(surface_->command_buffers[i]);
+        VK_VALIDATE_RESULT(vk_result);
+
+        VkSubmitInfo submit_info = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &surface_->command_buffers[i],
+        };
+
+        
+
+        VkFence init_fence = {};
+        VkFenceCreateInfo init_fence_info =
+        {
+            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO
+        };
+
+        vk_result = vkCreateFence(vulkan_device_, &init_fence_info, nullptr, &init_fence);
+        VK_VALIDATE_RESULT(vk_result);
+
+        vk_result = vkQueueSubmit(surface_->queue, 1, &submit_info, init_fence);
+        VK_VALIDATE_RESULT(vk_result);
+
+        vk_result = vkWaitForFences(vulkan_device_, 1, &init_fence, VK_TRUE, UINT64_MAX);
+        VK_VALIDATE_RESULT(vk_result);
+
+        vkDestroyFence(vulkan_device_, init_fence, nullptr);
+    }
 }
 
-auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay*& overlay) -> void
+auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay* overlay) -> void
 {
+    uint32_t idx = surface_->frame_index;
+
     if (!overlay->IsVisible())
         return;
 
@@ -429,14 +452,18 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay*& overlay) -
     VkRenderingAttachmentInfoKHR color_attachment =
     {
         .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-        .imageView = surface_->texture_view,
+        .imageView = surface_->texture_views[idx],
         .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         .resolveMode = VK_RESOLVE_MODE_NONE_KHR,
         .resolveImageView = VK_NULL_HANDLE,
         .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-        .clearValue = 0,
+        .clearValue = {
+            .color = {
+                .float32 = {  0.0f, 0.0f, 0.0f, 1.0f },
+            },
+        },
     };
 
     VkRenderingInfoKHR rendering_info = {
@@ -458,21 +485,55 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay*& overlay) -
         .pStencilAttachment = nullptr,
     };
 
-    vk_result = vkWaitForFences(vulkan_device_, 1, &surface_->fence, VK_TRUE, UINT64_MAX);
+    vk_result = vkWaitForFences(vulkan_device_, 1, &surface_->fences[idx], VK_TRUE, UINT64_MAX);
     VK_VALIDATE_RESULT(vk_result);
 
-    vk_result = vkResetFences(vulkan_device_, 1, &surface_->fence);
+    vk_result = vkResetFences(vulkan_device_, 1, &surface_->fences[idx]);
     VK_VALIDATE_RESULT(vk_result);
 
-    vk_result = vkResetCommandPool(vulkan_device_, surface_->command_pool, 0);
+    vk_result = vkResetCommandPool(vulkan_device_, surface_->command_pools[idx], 0); VK_VALIDATE_RESULT(vk_result);
     VK_VALIDATE_RESULT(vk_result);
 
-    vk_result = vkBeginCommandBuffer(surface_->command_buffer, &buffer_begin_info);
+    vk_result = vkBeginCommandBuffer(surface_->command_buffers[idx], &buffer_begin_info);
     VK_VALIDATE_RESULT(vk_result);
 
-    f_vkCmdBeginRenderingKHR(surface_->command_buffer, &rendering_info);
-    ImGui_ImplVulkan_RenderDrawData(draw_data, surface_->command_buffer);
-    f_vkCmdEndRenderingKHR(surface_->command_buffer);
+    if (!surface_->first_use[idx]) {
+        VkImageMemoryBarrier barrier_restore = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
+            .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = surface_->textures[idx],
+            .subresourceRange = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+        };
+
+        vkCmdPipelineBarrier(
+            surface_->command_buffers[idx],
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            0,
+            0, nullptr,
+            0, nullptr,
+            1, &barrier_restore
+        );
+    }
+    else {
+        surface_->first_use[idx] = false;
+    }
+
+
+    f_vkCmdBeginRenderingKHR(surface_->command_buffers[idx], &rendering_info);
+    ImGui_ImplVulkan_RenderDrawData(draw_data, surface_->command_buffers[idx]);
+    f_vkCmdEndRenderingKHR(surface_->command_buffers[idx]);
 
     VkImageMemoryBarrier barrier_optimal =
     {
@@ -483,7 +544,7 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay*& overlay) -
         .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = surface_->texture,
+        .image = surface_->textures[idx],
         .subresourceRange =
         {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -494,24 +555,24 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay*& overlay) -
         },
     };
 
-    vkCmdPipelineBarrier(surface_->command_buffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier_optimal);
+    vkCmdPipelineBarrier(surface_->command_buffers[idx], VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier_optimal);
 
-    vk_result = vkEndCommandBuffer(surface_->command_buffer);
+    vk_result = vkEndCommandBuffer(surface_->command_buffers[idx]);
     VK_VALIDATE_RESULT(vk_result);
 
     VkSubmitInfo submit_info_barrier =
     {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .commandBufferCount = 1,
-        .pCommandBuffers = &surface_->command_buffer,
+        .pCommandBuffers = &surface_->command_buffers[idx],
     };
 
-    vk_result = vkQueueSubmit(surface_->queue, 1, &submit_info_barrier, surface_->fence);
+    vk_result = vkQueueSubmit(surface_->queue, 1, &submit_info_barrier, surface_->fences[idx]);
     VK_VALIDATE_RESULT(vk_result);
 
     vr::VRVulkanTextureData_t vulkanTexure =
     {
-        .m_nImage = (uintptr_t)surface_->texture,
+        .m_nImage = (uintptr_t)surface_->textures[idx],
         .m_pDevice = vulkan_device_,
         .m_pPhysicalDevice = vulkan_physical_device_,
         .m_pInstance = vulkan_instance_,
@@ -538,45 +599,7 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, VrOverlay*& overlay) -
         return;
     }
 
-    vk_result = vkWaitForFences(vulkan_device_, 1, &surface_->fence, VK_TRUE, UINT64_MAX);
-    VK_VALIDATE_RESULT(vk_result);
-
-    vk_result = vkResetFences(vulkan_device_, 1, &surface_->fence);
-    VK_VALIDATE_RESULT(vk_result);
-
-    vk_result = vkResetCommandPool(vulkan_device_, surface_->command_pool, 0);
-    VK_VALIDATE_RESULT(vk_result);
-
-    vk_result = vkBeginCommandBuffer(surface_->command_buffer, &buffer_begin_info);
-    VK_VALIDATE_RESULT(vk_result);
-
-    VkImageMemoryBarrier barrier_restore =
-    {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-        .srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT,
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = surface_->texture,
-        .subresourceRange =
-        {
-            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1,
-        },
-    };
-
-    vkCmdPipelineBarrier(surface_->command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier_restore);
-
-    vk_result = vkEndCommandBuffer(surface_->command_buffer);
-    VK_VALIDATE_RESULT(vk_result);
-
-    vk_result = vkQueueSubmit(surface_->queue, 1, &submit_info_barrier, surface_->fence);
-    VK_VALIDATE_RESULT(vk_result);
+    surface_->frame_index = (surface_->frame_index + 1) % Vulkan_Surface::ImageCount;
 }
 
 auto VulkanRenderer::DestroySurface(Vulkan_Surface* surface) const -> void
@@ -585,20 +608,24 @@ auto VulkanRenderer::DestroySurface(Vulkan_Surface* surface) const -> void
     vk_result = vkQueueWaitIdle(vulkan_queue_);
     VK_VALIDATE_RESULT(vk_result);
 
-    vkDestroyFence(vulkan_device_, surface->fence, vulkan_allocator_);
-    vkFreeCommandBuffers(vulkan_device_, surface->command_pool, 1, &surface->command_buffer);
-    vkDestroyCommandPool(vulkan_device_, surface->command_pool, vulkan_allocator_);
+    for (uint32_t idx = 0; idx < Vulkan_Surface::ImageCount; ++idx)
+    {
 
-    vkDestroyImage(vulkan_device_, surface->texture, vulkan_allocator_);
-    vkFreeMemory(vulkan_device_, surface->texture_memory, vulkan_allocator_);
-    vkDestroyImageView(vulkan_device_, surface->texture_view, vulkan_allocator_);
+        vkFreeCommandBuffers(vulkan_device_, surface->command_pools[idx], 1, &surface->command_buffers[idx]);
+        vkDestroyCommandPool(vulkan_device_, surface->command_pools[idx], vulkan_allocator_);
+        vkDestroyFence(vulkan_device_, surface->fences[idx], vulkan_allocator_);
+        vkDestroyImageView(vulkan_device_, surface->texture_views[idx], vulkan_allocator_);
+        vkDestroyImage(vulkan_device_, surface->textures[idx], vulkan_allocator_);
+        vkFreeMemory(vulkan_device_, surface->texture_memories[idx], vulkan_allocator_);
 
-    surface->fence = VK_NULL_HANDLE;
-    surface->command_pool = VK_NULL_HANDLE;
-    surface->command_buffer = VK_NULL_HANDLE;
-    surface->texture = VK_NULL_HANDLE;
-    surface->texture_memory = VK_NULL_HANDLE;
-    surface->texture_view = VK_NULL_HANDLE;
+
+        surface->command_pools[idx] = VK_NULL_HANDLE;
+        surface->command_buffers[idx] = VK_NULL_HANDLE;
+        surface->fences[idx] = VK_NULL_HANDLE;
+        surface->texture_views[idx] = VK_NULL_HANDLE;
+        surface->textures[idx] = VK_NULL_HANDLE;
+        surface->texture_memories[idx] = VK_NULL_HANDLE;
+    }
 }
 
 auto VulkanRenderer::Destroy() const -> void
