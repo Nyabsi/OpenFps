@@ -188,6 +188,8 @@ auto HandOverlay::Render() -> void
                         color = Color_Purple;
                     else if (cpu_frame_times_[i].flags & FrameTimeInfo_Flags_PredictedAhead)
                         color = Color_LightBlue;
+                    else if (cpu_frame_times_[i].flags & FrameTimeInfo_Flags_Frame_Throttled)
+                        color = Color_PinkishRed;
                     else
                         color = Color_Green;
 
@@ -744,7 +746,7 @@ auto HandOverlay::Update() -> void
                 if (timings.m_nNumMisPresented >= 2) {
                     info_gpu.flags |= FrameTimeInfo_Flags_OneThirdFramePresented;
                     if (throttled_frames >= 2)
-                        info_cpu.flags |= FrameTimeInfo_Flags_OneThirdFramePresented; // TODO: colour code throttle
+                        info_cpu.flags |= FrameTimeInfo_Flags_Frame_Throttled;
                 }
                 else {
                     if (timings.m_nReprojectionFlags & vr::VRCompositor_ReprojectionAsync) {
@@ -793,16 +795,6 @@ auto HandOverlay::Update() -> void
         else {
             wireless_latency_ = 0.0f;
         }
-
-        float effective_frametime_ms = {};
-
-        // Only GPU reprojection guarantees that the frame is consistently halfed.
-        if (bottleneck_flags_ & BottleneckSource_Flags_GPU)
-            effective_frametime_ms = frame_time_ * 2.0f;
-        else
-            effective_frametime_ms = max(frame_time_, gpu_frame_time_ms_);
-
-        current_fps_ = (effective_frametime_ms > 0.0f) ? 1000.0f / effective_frametime_ms : 0.0f;
 
         frame_index_ = (frame_index_ + 1) % static_cast<int>(refresh_rate_);
 
@@ -861,6 +853,14 @@ auto HandOverlay::Update() -> void
 		cpu_frame_time_avg_ = cpu_frame_time_ms_;
 		gpu_frame_time_avg_ = gpu_frame_time_ms_;
         task_monitor_.Update();
+        float effective_frametime_ms = max(
+            frame_time_,
+            timings.m_flCompositorRenderCpuMs +
+            timings.m_flWaitForPresentCpuMs +
+            timings.m_flClientFrameIntervalMs +
+            timings.m_flSubmitFrameMs
+        );
+        current_fps_ = (effective_frametime_ms > 0.0f) ? 1000.0f / effective_frametime_ms : 0.0f;
         last_time = ImGui::GetTime();
     }
 

@@ -9,6 +9,7 @@ constexpr auto Color_Orange = IMGUI_NORMALIZED_RGBA(255, 64, 0, 255);       /* 2
 constexpr auto Color_LightBlue = IMGUI_NORMALIZED_RGBA(0, 128, 255, 255);   /* 0, 128, 255        */
 constexpr auto Color_White = IMGUI_NORMALIZED_RGBA(255, 255, 255, 255);     /* 255, 255, 255, 255 */
 constexpr auto Color_Red = IMGUI_NORMALIZED_RGBA(255, 0, 0, 255);           /* 255, 0, 0          */
+constexpr auto Color_PinkishRed = IMGUI_NORMALIZED_RGBA(241, 12, 69, 255);  /* 241, 12, 69        */
 constexpr auto Color_Yellow = IMGUI_NORMALIZED_RGBA(255, 255, 0, 255);      /* 255, 255, 0        */
 constexpr auto Color_Magenta = IMGUI_NORMALIZED_RGBA(255, 0, 255, 255);     /* 255, 0, 255        */
 constexpr auto Color_Purple = IMGUI_NORMALIZED_RGBA(128, 0, 255, 255);      /* 128, 0, 255        */

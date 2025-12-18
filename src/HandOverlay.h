@@ -16,7 +16,8 @@ enum FrameTimeInfo_Flags : uint32_t {
     FrameTimeInfo_Flags_MotionSmoothingEnabled = 1 << 2,
     FrameTimeInfo_Flags_OneThirdFramePresented = 1 << 3,
     FrameTimeInfo_Flags_Frame_Dropped = 1 << 4,
-    FrameTimeInfo_Flags_Frame_Cpu_Stalled = 1 << 5
+    FrameTimeInfo_Flags_Frame_Cpu_Stalled = 1 << 5,
+    FrameTimeInfo_Flags_Frame_Throttled = 1 << 6
 };
 
 enum BottleneckSource_Flags : uint32_t {
