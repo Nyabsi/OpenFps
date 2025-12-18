@@ -56,19 +56,19 @@ enum CpuMetric_Type : uint8_t {
     CpuMetric_Total_Time = 3,
 };
 
-// This nai've implementation does not account for SLI.
 inline auto getCurrentlyUsedGpu = [](const ProcessInfo& info) -> GpuInfo 
 {
     auto gpuIt = std::ranges::find_if(info.gpus, [](auto& gpuEntry) {
         auto& [gpuId, gpu] = gpuEntry;
         return std::ranges::find_if(gpu.engines, [](auto& engEntry) {
             const auto& [idx, eng] = engEntry;
-            return eng.utilization_percentage > 0.0f;
+            return eng.engine_type == "3D" && eng.utilization_percentage > 0.0f;
         }) != gpu.engines.end();
     });
 
     return gpuIt != info.gpus.end()
-        ? gpuIt->second
+        ? 
+        gpuIt->second
         : GpuInfo{};
 };
 
