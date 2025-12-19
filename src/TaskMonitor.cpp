@@ -110,6 +110,7 @@ auto TaskMonitor::Destroy() -> void
 auto TaskMonitor::Update() -> void
 {
     process_list_.clear();
+    process_map_.clear();
 
     PDH_STATUS result = {};
 
@@ -167,11 +168,7 @@ auto TaskMonitor::Update() -> void
 
 auto TaskMonitor::GetProcessInfoByPid(uint64_t pid) -> ProcessInfo
 {
-    for (const auto& [process_pid, info] : process_list_) {
-        if (process_pid == pid)
-            return info;
-    }
-    return {};
+    return process_list_[pid];
 }
 
 auto TaskMonitor::mapProcessesToPid(PDH_HCOUNTER counter) -> void
@@ -301,20 +298,18 @@ auto TaskMonitor::calculateCpuMetricFromCounter(PDH_HCOUNTER counter, CpuMetric_
     for (DWORD i = 0; i < itemCount; ++i) {
         if (items != nullptr && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
             uint64_t pid = process_map_[items[i].szName];
-            if (pid != -1) {
-                if (strcmp(items[i].szName, "Idle") != 0 && strcmp(items[i].szName, "_Total") != 0) {
-                    switch (type)
-                    {
-                    case CpuMetric_User_Time:
-                        process_list_[pid].cpu.user_cpu_usage = items[i].FmtValue.doubleValue;
-                        break;
-                    case CpuMetric_Priviledged_Time:
-                        process_list_[pid].cpu.kernel_cpu_usage = items[i].FmtValue.doubleValue;
-                        break;
-                    case CpuMetric_Total_Time:
-                        process_list_[pid].cpu.total_cpu_usage = items[i].FmtValue.doubleValue;
-                        break;
-                    }
+            if (strcmp(items[i].szName, "Idle") != 0 && strcmp(items[i].szName, "_Total") != 0) {
+                switch (type)
+                {
+                case CpuMetric_User_Time:
+                    process_list_[pid].cpu.user_cpu_usage = items[i].FmtValue.doubleValue;
+                    break;
+                case CpuMetric_Priviledged_Time:
+                    process_list_[pid].cpu.kernel_cpu_usage = items[i].FmtValue.doubleValue;
+                    break;
+                case CpuMetric_Total_Time:
+                    process_list_[pid].cpu.total_cpu_usage = items[i].FmtValue.doubleValue;
+                    break;
                 }
             }
         }
@@ -339,10 +334,8 @@ auto TaskMonitor::calculateMemoryMetricFromCounter(PDH_HCOUNTER counter) -> void
     for (DWORD i = 0; i < itemCount; ++i) {
         if (items != nullptr && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
             uint64_t pid = process_map_[items[i].szName];
-            if (pid != -1) {
-                if (strcmp(items[i].szName, "Idle") != 0 && strcmp(items[i].szName, "_Total") != 0) {
-                    process_list_[pid].memory_usage = items[i].FmtValue.doubleValue;
-                }
+            if (strcmp(items[i].szName, "Idle") != 0 && strcmp(items[i].szName, "_Total") != 0) {
+                process_list_[pid].memory_usage = items[i].FmtValue.doubleValue;
             }
         }
     }
