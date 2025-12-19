@@ -249,9 +249,9 @@ auto VulkanRenderer::Initialize()  -> void
     vk_result = vkCreateDescriptorPool(vulkan_device_, &pool_info, vulkan_allocator_, &vulkan_descriptor_pool_);
     VK_VALIDATE_RESULT(vk_result);
 
-    this->f_vkCmdBeginRenderingKHR = (PFN_vkCmdBeginRenderingKHR)vkGetInstanceProcAddr(vulkan_instance_, "vkCmdBeginRenderingKHR");
+    this->f_vkCmdBeginRenderingKHR = (PFN_vkCmdBeginRenderingKHR)vkGetDeviceProcAddr(vulkan_device_, "vkCmdBeginRenderingKHR");
     assert(f_vkCmdBeginRenderingKHR != nullptr);
-    this->f_vkCmdEndRenderingKHR = (PFN_vkCmdEndRenderingKHR)vkGetInstanceProcAddr(vulkan_instance_, "vkCmdEndRenderingKHR");
+    this->f_vkCmdEndRenderingKHR = (PFN_vkCmdEndRenderingKHR)vkGetDeviceProcAddr(vulkan_device_, "vkCmdEndRenderingKHR");
     assert(f_vkCmdEndRenderingKHR != nullptr);
 }
 
@@ -489,9 +489,6 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, Overlay* overlay) -> v
     VK_VALIDATE_RESULT(vk_result);
 
     vk_result = vkResetFences(vulkan_device_, 1, &overlay->Surface()->fences[idx]);
-    VK_VALIDATE_RESULT(vk_result);
-
-    vk_result = vkResetCommandPool(vulkan_device_, overlay->Surface()->command_pools[idx], 0); VK_VALIDATE_RESULT(vk_result);
     VK_VALIDATE_RESULT(vk_result);
 
     vk_result = vkBeginCommandBuffer(overlay->Surface()->command_buffers[idx], &buffer_begin_info);
