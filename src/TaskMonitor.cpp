@@ -15,6 +15,7 @@
 TaskMonitor::TaskMonitor()
 {
     process_list_.clear();
+    process_map_.clear();
 
     pdh_query_ = { };
 
@@ -25,6 +26,7 @@ TaskMonitor::TaskMonitor()
     pdh_user_process_time_ = { };
     pdh_kernel_process_time_ = { };
     pdh_total_process_time_ = { };
+    pdh_process_memory_ = { };
     system_info_ = { };
     system_memory_ = { };
     dxgi_factory_ = nullptr;
@@ -111,9 +113,14 @@ auto TaskMonitor::Update() -> void
 
     PDH_STATUS result = {};
 
-    result = PdhCollectQueryData(pdh_query_);
-    if (result != ERROR_SUCCESS)
-        throw std::runtime_error("Failed to collect query data through PdhCollectQueryData");
+    try {
+        result = PdhCollectQueryData(pdh_query_);
+        if (result != ERROR_SUCCESS)
+            throw std::runtime_error("Failed to collect query data through PdhCollectQueryData");
+    }
+    catch (...) {
+        return;
+    }
 
     mapProcessesToPid(pdh_processes_id_counter_);
 
@@ -173,23 +180,21 @@ auto TaskMonitor::mapProcessesToPid(PDH_HCOUNTER counter) -> void
 
     DWORD bufferSize = 0;
     DWORD itemCount = 0;
-    PDH_FMT_COUNTERVALUE_ITEM* items = nullptr;
 
     result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_LARGE, &bufferSize, &itemCount, nullptr);
     if (result != PDH_MORE_DATA)
         throw std::runtime_error("Failed to get formatted counter array size (Dedicated Usage) through PdhGetFormattedCounterArrayA");
 
-    items = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(bufferSize);
+    std::vector<std::byte> buffer(bufferSize);
+    auto* items = reinterpret_cast<PDH_FMT_COUNTERVALUE_ITEM*>(buffer.data());
     result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_LARGE, &bufferSize, &itemCount, items);
 
     for (DWORD i = 0; i < itemCount; ++i) {
         if (items != nullptr && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
             process_list_[items[i].FmtValue.largeValue].process_name = items[i].szName;
+            process_map_[items[i].szName] = items[i].FmtValue.largeValue;
         }
     }
-
-    free(items);
-    bufferSize = 0;
 }
 
 auto TaskMonitor::calculateGpuMetricFromCounter(PDH_HCOUNTER counter, GpuMetric_Type type) -> void
@@ -262,13 +267,13 @@ auto TaskMonitor::calculateGpuMetricFromCounter(PDH_HCOUNTER counter, GpuMetric_
 
     DWORD bufferSize = 0;
     DWORD itemCount = 0;
-    PDH_FMT_COUNTERVALUE_ITEM* items = nullptr;
 
     result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_LARGE, &bufferSize, &itemCount, nullptr);
     if (result != PDH_MORE_DATA)
         throw std::runtime_error("Failed to get formatted counter array size (Dedicated Usage) through PdhGetFormattedCounterArrayA");
 
-    items = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(bufferSize);
+    std::vector<std::byte> buffer(bufferSize);
+    auto* items = reinterpret_cast<PDH_FMT_COUNTERVALUE_ITEM*>(buffer.data());
     result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_LARGE, &bufferSize, &itemCount, items);
 
     for (DWORD i = 0; i < itemCount; ++i) {
@@ -276,38 +281,26 @@ auto TaskMonitor::calculateGpuMetricFromCounter(PDH_HCOUNTER counter, GpuMetric_
             parseCounterToStruct(items[i].szName, items[i].FmtValue.largeValue);
         }
     }
-
-    free(items);
-    bufferSize = 0;
 }
 
 auto TaskMonitor::calculateCpuMetricFromCounter(PDH_HCOUNTER counter, CpuMetric_Type type) -> void
 {
     PDH_STATUS result = {};
 
-    auto pidFromName = [&](const std::string name) -> int {
-        for (auto& [pid, process] : process_list_) {
-            if (process.process_name == name) {
-                return pid;
-            }
-        }
-        return -1;
-    };
-
     DWORD bufferSize = 0;
     DWORD itemCount = 0;
-    PDH_FMT_COUNTERVALUE_ITEM* items = nullptr;
 
     result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_DOUBLE | PDH_FMT_NOCAP100, &bufferSize, &itemCount, nullptr);
     if (result != PDH_MORE_DATA)
         throw std::runtime_error("Failed to get formatted counter array size (Dedicated Usage) through PdhGetFormattedCounterArrayA");
 
-    items = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(bufferSize);
+    std::vector<std::byte> buffer(bufferSize);
+    auto* items = reinterpret_cast<PDH_FMT_COUNTERVALUE_ITEM*>(buffer.data());
     result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_DOUBLE | PDH_FMT_NOCAP100, &bufferSize, &itemCount, items);
 
     for (DWORD i = 0; i < itemCount; ++i) {
         if (items != nullptr && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
-            uint32_t pid = pidFromName(items[i].szName);
+            uint64_t pid = process_map_[items[i].szName];
             if (pid != -1) {
                 if (strcmp(items[i].szName, "Idle") != 0 && strcmp(items[i].szName, "_Total") != 0) {
                     switch (type)
@@ -326,38 +319,26 @@ auto TaskMonitor::calculateCpuMetricFromCounter(PDH_HCOUNTER counter, CpuMetric_
             }
         }
     }
-
-    free(items);
-    bufferSize = 0;
 }
 
 auto TaskMonitor::calculateMemoryMetricFromCounter(PDH_HCOUNTER counter) -> void
 {
     PDH_STATUS result = {};
 
-    auto pidFromName = [&](const std::string name) -> int {
-        for (auto& [pid, process] : process_list_) {
-            if (process.process_name == name) {
-                return pid;
-            }
-        }
-        return -1;
-        };
-
     DWORD bufferSize = 0;
     DWORD itemCount = 0;
-    PDH_FMT_COUNTERVALUE_ITEM* items = nullptr;
 
     result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_DOUBLE | PDH_FMT_NOCAP100, &bufferSize, &itemCount, nullptr);
     if (result != PDH_MORE_DATA)
         throw std::runtime_error("Failed to get formatted counter array size (Working Set) through PdhGetFormattedCounterArrayA");
 
-    items = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(bufferSize);
+    std::vector<std::byte> buffer(bufferSize);
+    auto* items = reinterpret_cast<PDH_FMT_COUNTERVALUE_ITEM*>(buffer.data());
     result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_DOUBLE | PDH_FMT_NOCAP100, &bufferSize, &itemCount, items);
 
     for (DWORD i = 0; i < itemCount; ++i) {
         if (items != nullptr && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
-            uint32_t pid = pidFromName(items[i].szName);
+            uint64_t pid = process_map_[items[i].szName];
             if (pid != -1) {
                 if (strcmp(items[i].szName, "Idle") != 0 && strcmp(items[i].szName, "_Total") != 0) {
                     process_list_[pid].memory_usage = items[i].FmtValue.doubleValue;
@@ -365,7 +346,4 @@ auto TaskMonitor::calculateMemoryMetricFromCounter(PDH_HCOUNTER counter) -> void
             }
         }
     }
-
-    free(items);
-    bufferSize = 0;
 }

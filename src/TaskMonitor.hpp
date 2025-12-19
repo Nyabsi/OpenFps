@@ -120,6 +120,7 @@ private:
     auto calculateMemoryMetricFromCounter(PDH_HCOUNTER counter) -> void;
 
     std::unordered_map<uint64_t, ProcessInfo> process_list_;
+    std::unordered_map<std::string, uint64_t> process_map_;
     PDH_HQUERY pdh_query_;
     PDH_HCOUNTER pdh_processes_id_counter_;
 	PDH_HCOUNTER pdh_dedicated_vram_counter_;
