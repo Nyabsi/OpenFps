@@ -6,7 +6,7 @@
 
 Settings::Settings()
 {
-    overlay_scale_ = 0.15f;
+    overlay_scale_ = 0.20f;
     handedness_ = 1;
     position_ = 0;
     ss_scaling_enabled_ = false;
@@ -26,7 +26,7 @@ auto Settings::Load() -> void
     if (file.good()) {
         nlohmann::json j;
         file >> j;
-        overlay_scale_ = j.value("overlay_scale", 0.15f);
+        overlay_scale_ = j.value("overlay_scale", 0.20f);
         handedness_ = j.value("controller_handedness", 1);
         position_ = j.value("controller_position", 0);
 		ss_scaling_enabled_ = j.value("ss_scaling_enabled", false);
