@@ -119,7 +119,13 @@ auto TaskMonitor::Update() -> void
         if (result != ERROR_SUCCESS)
             throw std::runtime_error("Failed to collect query data through PdhCollectQueryData");
     }
-    catch (...) {
+    catch (std::exception& ex) {
+#ifdef _WIN32
+        char error_message[512] = {};
+        snprintf(error_message, 512, "Failed to collect PDH counters.\nReason: %s\r\n", ex.what());
+        MessageBoxA(NULL, error_message, "OpenFps", MB_OK);
+#endif
+        printf("%s\n\n", ex.what());
         return;
     }
 

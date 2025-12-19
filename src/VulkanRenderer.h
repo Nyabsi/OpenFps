@@ -75,7 +75,7 @@ public:
     [[nodiscard]] auto PipelineCache() const -> VkPipelineCache { return vulkan_pipeline_cache_; }
 
     auto SetupSurface(Overlay* overlay, uint32_t width, uint32_t height, VkSurfaceFormatKHR format) -> void;
-    auto RenderSurface(ImDrawData* draw_data, Overlay* overlay) -> void;
+    auto RenderSurface(ImDrawData* draw_data, Overlay* overlay) const -> void;
     auto DestroySurface(Vulkan_Surface* surface) const -> void;
 
     auto Destroy() const -> void;

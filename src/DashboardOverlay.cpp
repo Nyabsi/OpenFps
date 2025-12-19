@@ -27,24 +27,35 @@ static std::chrono::steady_clock::time_point g_last_update;
 
 DashboardOverlay::DashboardOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::VROverlayType_Dashboard, OVERLAY_WIDTH, OVERLAY_HEIGHT)
 {
-    std::string thumbnail_path = {};
-    thumbnail_path += SDL_GetCurrentDirectory();
-    thumbnail_path += "icon.png";
-    this->SetThumbnail(thumbnail_path);
+    try {
+        std::string thumbnail_path = {};
+        thumbnail_path += SDL_GetCurrentDirectory();
+        thumbnail_path += "icon.png";
+        this->SetThumbnail(thumbnail_path);
 
-    this->SetInputMethod(vr::VROverlayInputMethod_Mouse);
-    this->SetWidth(3.0f);
+        this->SetInputMethod(vr::VROverlayInputMethod_Mouse);
+        this->SetWidth(3.0f);
 
-    this->EnableFlag(vr::VROverlayFlags_SendVRDiscreteScrollEvents);
-    this->EnableFlag(vr::VROverlayFlags_EnableClickStabilization);
+        this->EnableFlag(vr::VROverlayFlags_SendVRDiscreteScrollEvents);
+        this->EnableFlag(vr::VROverlayFlags_EnableClickStabilization);
 
-    task_monitor_.Initialize();
+        task_monitor_.Initialize();
 
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.ScaleAllSizes(2.0f);
-    style.FontScaleDpi = 2.0f;
+        ImGuiStyle& style = ImGui::GetStyle();
+        style.ScaleAllSizes(2.0f);
+        style.FontScaleDpi = 2.0f;
 
-    g_last_update = std::chrono::steady_clock::now();
+        g_last_update = std::chrono::steady_clock::now();
+    }
+    catch (std::exception& ex) {
+#ifdef _WIN32
+        char error_message[512] = {};
+        snprintf(error_message, 512, "Failed to initialize the overlay.\nReason: %s\r\n", ex.what());
+        MessageBoxA(NULL, error_message, "OpenFps", MB_OK);
+#endif
+        printf("%s\n\n", ex.what());
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 auto DashboardOverlay::Render()-> bool

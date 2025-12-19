@@ -126,9 +126,9 @@ auto VulkanRenderer::Initialize()  -> void
 
     if (
         vulkan_physical_device_properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU &&
-        vulkan_physical_device_properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
-        ) {
-        std::exit(EXIT_FAILURE);
+        vulkan_physical_device_properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) 
+    {
+        throw std::runtime_error("You need an GPU to run this program, make sure your drivers are up to date!");
     }
 
     VkPhysicalDeviceProperties properties = {};
@@ -176,10 +176,8 @@ auto VulkanRenderer::Initialize()  -> void
     if (!IsVulkanDeviceExtensionAvailable(vulkan_physical_device_, VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME))
         has_dynamic_rendering = false;
 
-    if (!has_dynamic_rendering) {
-        // TODO: tell the user their GPU does not support dynamic rendering.
-        std::exit(EXIT_FAILURE);
-    }
+    if (!has_dynamic_rendering)
+        throw std::runtime_error("Your graphics card drivers do not support dynamic rendering, upgrade your drivers and make sure your GPU supports it.");
 
     vulkan_device_extensions_.insert(vulkan_device_extensions_.end(), { 
         VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, 
@@ -228,8 +226,8 @@ auto VulkanRenderer::Initialize()  -> void
 
     VkDescriptorPoolSize pool_sizes[] = {
         {
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 
-            8
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            16
         },
     };
 
@@ -237,7 +235,7 @@ auto VulkanRenderer::Initialize()  -> void
     {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-        .maxSets = 8,
+        .maxSets = 16,
     };
 
     for (VkDescriptorPoolSize& pool_size : pool_sizes)
@@ -434,7 +432,7 @@ auto VulkanRenderer::SetupSurface(Overlay* overlay, uint32_t width, uint32_t hei
     }
 }
 
-auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, Overlay* overlay) -> void
+auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, Overlay* overlay) const -> void
 {
     uint32_t idx = overlay->Surface()->frame_index;
 

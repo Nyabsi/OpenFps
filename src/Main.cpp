@@ -96,7 +96,18 @@ int main(
     }
 
 
-    g_vulkanRenderer->Initialize();
+    try {
+        g_vulkanRenderer->Initialize();
+    }
+    catch (std::exception& ex) {
+#ifdef _WIN32
+        char error_message[512] = {};
+        snprintf(error_message, 512, "Failed to initialize Vulkan.\nReason: %s\r\n", ex.what());
+        MessageBoxA(NULL, error_message, APP_NAME, MB_OK);
+#endif
+        printf("%s\n\n", ex.what());
+        return EXIT_FAILURE;
+    }
 
     g_performanceOverlay = new HandOverlay();
     g_ProcessList = new DashboardOverlay();
