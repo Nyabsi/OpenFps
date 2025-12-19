@@ -66,44 +66,44 @@ HandOverlay::HandOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::VROverlayTyp
         this->SetInputMethod(vr::VROverlayInputMethod_Mouse);
         this->EnableFlag(vr::VROverlayFlags_SendVRDiscreteScrollEvents);
         this->EnableFlag(vr::VROverlayFlags_EnableClickStabilization);
-
-        ImPlot::CreateContext();
-
-        task_monitor_.Initialize();
-
-        settings_.Load();
-
-        display_mode_ = static_cast<Overlay_DisplayMode>(settings_.DisplayMode());
-        overlay_scale_ = settings_.OverlayScale();
-        handedness_ = settings_.Handedness();
-        position_ = settings_.Position();
-        ss_scaling_enabled_ = settings_.SsScalingEnabled();
-        color_temperature_ = settings_.PostProcessingEnabled();
-        color_temp_ = settings_.ColorTemperature();
-        color_brightness_ = settings_.ColorBrightness();
-
-        colour_mask_ = (float*)malloc(sizeof(float) * 3);
-#pragma warning( push )
-#pragma warning( disable : 6387 )
-        memset(colour_mask_, 0x0, sizeof(float) * 3);
-#pragma warning( pop )
-
-        ss_scale_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_SupersampleScale_Float) * 100;
-        color_channel_red_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainR_Float);
-        color_channel_green_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainG_Float);
-        color_channel_blue_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainB_Float);
-
-        this->UpdateDeviceTransform();
     }
     catch (std::exception& ex) {
 #ifdef _WIN32
         char error_message[512] = {};
-        snprintf(error_message, 512, "Failed to collect PDH counters.\nReason: %s\r\n", ex.what());
+        snprintf(error_message, 512, "Failed to initialize the overlay.\nReason: %s\r\n", ex.what());
         MessageBoxA(NULL, error_message, "OpenFps", MB_OK);
 #endif
         printf("%s\n\n", ex.what());
         std::exit(EXIT_FAILURE);
     }
+
+    ImPlot::CreateContext();
+
+    task_monitor_.Initialize();
+
+    settings_.Load();
+
+    display_mode_ = static_cast<Overlay_DisplayMode>(settings_.DisplayMode());
+    overlay_scale_ = settings_.OverlayScale();
+    handedness_ = settings_.Handedness();
+    position_ = settings_.Position();
+    ss_scaling_enabled_ = settings_.SsScalingEnabled();
+    color_temperature_ = settings_.PostProcessingEnabled();
+    color_temp_ = settings_.ColorTemperature();
+    color_brightness_ = settings_.ColorBrightness();
+
+    colour_mask_ = (float*)malloc(sizeof(float) * 3);
+#pragma warning( push )
+#pragma warning( disable : 6387 )
+    memset(colour_mask_, 0x0, sizeof(float) * 3);
+#pragma warning( pop )
+
+    ss_scale_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_SupersampleScale_Float) * 100;
+    color_channel_red_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainR_Float);
+    color_channel_green_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainG_Float);
+    color_channel_blue_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainB_Float);
+
+    this->UpdateDeviceTransform();
 }
 
 auto HandOverlay::Render() -> bool

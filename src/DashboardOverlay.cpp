@@ -38,14 +38,6 @@ DashboardOverlay::DashboardOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::VR
 
         this->EnableFlag(vr::VROverlayFlags_SendVRDiscreteScrollEvents);
         this->EnableFlag(vr::VROverlayFlags_EnableClickStabilization);
-
-        task_monitor_.Initialize();
-
-        ImGuiStyle& style = ImGui::GetStyle();
-        style.ScaleAllSizes(2.0f);
-        style.FontScaleDpi = 2.0f;
-
-        g_last_update = std::chrono::steady_clock::now();
     }
     catch (std::exception& ex) {
 #ifdef _WIN32
@@ -56,6 +48,14 @@ DashboardOverlay::DashboardOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::VR
         printf("%s\n\n", ex.what());
         std::exit(EXIT_FAILURE);
     }
+
+    task_monitor_.Initialize();
+
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.ScaleAllSizes(2.0f);
+    style.FontScaleDpi = 2.0f;
+
+    g_last_update = std::chrono::steady_clock::now();
 }
 
 auto DashboardOverlay::Render()-> bool
