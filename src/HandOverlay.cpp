@@ -297,7 +297,10 @@ auto HandOverlay::Render() -> void
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("FPS");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::TextColored(bottleneck_flags_& BottleneckSource_Flags_GPU ? Color_Orange : Color_White, "%1.f", current_fps_);
+                if (bottleneck_flags_ & BottleneckSource_Flags_GPU)
+                    ImGui::TextColored(Color_Orange, "%1.f", current_fps_);
+                else
+                    ImGui::Text("%1.f", current_fps_);
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
