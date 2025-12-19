@@ -13,7 +13,7 @@ class DashboardOverlay : public Overlay
 public:
     explicit DashboardOverlay();
 
-    auto Render() -> void override;
+    auto Render() -> bool override;
     auto Update() -> void override;
     auto Destroy() -> void;
 private:

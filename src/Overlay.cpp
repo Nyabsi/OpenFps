@@ -14,6 +14,7 @@
 Overlay::Overlay(const std::string& appKey, const std::string& name, vr::VROverlayType type, int width, int height) : VrOverlay()
 {
     surface_ = std::make_unique<Vulkan_Surface>();
+    type_ = type;
 
     try {
         char overlay_key[100];
@@ -204,6 +205,8 @@ Overlay::Overlay(const std::string& appKey, const std::string& name, vr::VROverl
     ImGui_ImplVulkan_Init(&init_info);
 
     g_vulkanRenderer->SetupSurface(this, width, height, surface_format);
+
+    keyboard_global_show_ = false;
 }
 
 Overlay::~Overlay()
@@ -216,25 +219,53 @@ Overlay::~Overlay()
     ImGui::DestroyContext();
 }
 
-auto Overlay::Render() -> void
+auto Overlay::Render() -> bool
 {
-    assert(false && "Did you forget to override \'Render\' for Overlay?!");
+    if (keyboard_global_show_ && type_ == vr::VROverlayType_World)
+        return false;
+
+    if (ImGui::GetCurrentContext() != this->Context())
+        ImGui::SetCurrentContext(this->Context());
+
+    return true;
 }
 
 auto Overlay::Update() -> void
 {
-    ImGui::SetCurrentContext(this->Context());
+    if (ImGui::GetCurrentContext() != this->Context())
+        ImGui::SetCurrentContext(this->Context());
 
     vr::VREvent_t vr_event = {};
     while (vr::VROverlay()->PollNextOverlayEvent(this->Handle(), &vr_event, sizeof(vr_event)))
     {
+        if (vr_event.eventType == vr::VREvent_KeyboardOpened_Global) {
+            if (vr_event.data.keyboard.overlayHandle != this->Handle())
+                keyboard_global_show_ = true;
+        }
+
+        if (vr_event.eventType == vr::VREvent_KeyboardClosed_Global) {
+            if (vr_event.data.keyboard.overlayHandle != this->Handle())
+                keyboard_global_show_ = false;
+        }
+
         ImGui_ImplOpenVR_ProcessOverlayEvent(vr_event);
     }
+
+    if (keyboard_global_show_ && type_ == vr::VROverlayType_World)
+        this->Hide();
+
+    if (!keyboard_global_show_ && type_ == vr::VROverlayType_World)
+        this->Show();
 }
 
 auto Overlay::Draw() -> void
 {
-    ImGui::SetCurrentContext(this->Context());
+    if (keyboard_global_show_ && type_ == vr::VROverlayType_World)
+        return;
+
+    if (ImGui::GetCurrentContext() != this->Context())
+        ImGui::SetCurrentContext(this->Context());
+
     ImDrawData* draw_data = ImGui::GetDrawData();
     g_vulkanRenderer->RenderSurface(draw_data, this);
 }

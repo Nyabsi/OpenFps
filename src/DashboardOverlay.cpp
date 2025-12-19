@@ -25,10 +25,7 @@ static ImGuiTableSortSpecs g_cached_sort = {};
 static std::chrono::steady_clock::time_point g_last_update;
 
 
-DashboardOverlay::DashboardOverlay()
-    : Overlay(OVERLAY_KEY, OVERLAY_NAME,
-        vr::VROverlayType_Dashboard,
-        OVERLAY_WIDTH, OVERLAY_HEIGHT)
+DashboardOverlay::DashboardOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::VROverlayType_Dashboard, OVERLAY_WIDTH, OVERLAY_HEIGHT)
 {
     std::string thumbnail_path = {};
     thumbnail_path += SDL_GetCurrentDirectory();
@@ -50,9 +47,13 @@ DashboardOverlay::DashboardOverlay()
     g_last_update = std::chrono::steady_clock::now();
 }
 
-auto DashboardOverlay::Render() -> void
+auto DashboardOverlay::Render()-> bool
 {
-    ImGui::SetCurrentContext(this->Context());
+    if (!Overlay::Render())
+        return false;
+
+    if (!this->IsVisible())
+        return false;
 
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplOpenVR_NewFrame();
@@ -222,6 +223,8 @@ auto DashboardOverlay::Render() -> void
     ImGui::EndChild();
     ImGui::End();
     ImGui::Render();
+
+    return true;
 }
 
 auto DashboardOverlay::Update() -> void

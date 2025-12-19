@@ -18,6 +18,13 @@
 #define OVERLAY_WIDTH   420
 #define OVERLAY_HEIGHT  220
 
+static bool g_keyboard_global_show = false;
+static float g_overlay_width = -1.0f;
+static uint32_t g_last_index = vr::k_unTrackedDeviceIndexInvalid;
+static vr::ETrackedControllerRole g_overlay_handedness = vr::TrackedControllerRole_Invalid;
+static glm::vec3 g_position = {};
+static glm::quat g_rotation = {};
+
 HandOverlay::HandOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::VROverlayType_World, OVERLAY_WIDTH, OVERLAY_HEIGHT)
 {
     frame_time_ = {};
@@ -54,10 +61,7 @@ HandOverlay::HandOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::VROverlayTyp
     color_temp_ = {};
     color_brightness_ = {};
     colour_mask_ = {};
-}
 
-auto HandOverlay::Initialize() -> void
-{
     this->SetInputMethod(vr::VROverlayInputMethod_Mouse);
     this->EnableFlag(vr::VROverlayFlags_SendVRDiscreteScrollEvents);
     this->EnableFlag(vr::VROverlayFlags_EnableClickStabilization);
@@ -66,16 +70,16 @@ auto HandOverlay::Initialize() -> void
 
     task_monitor_.Initialize();
 
-	settings_.Load();
+    settings_.Load();
 
-	display_mode_ = static_cast<Overlay_DisplayMode>(settings_.DisplayMode());
-	overlay_scale_ = settings_.OverlayScale();
-	handedness_ = settings_.Handedness();
-	position_ = settings_.Position();
-	ss_scaling_enabled_ = settings_.SsScalingEnabled();
-	color_temperature_ = settings_.PostProcessingEnabled();
-	color_temp_ = settings_.ColorTemperature();
-	color_brightness_ = settings_.ColorBrightness();
+    display_mode_ = static_cast<Overlay_DisplayMode>(settings_.DisplayMode());
+    overlay_scale_ = settings_.OverlayScale();
+    handedness_ = settings_.Handedness();
+    position_ = settings_.Position();
+    ss_scaling_enabled_ = settings_.SsScalingEnabled();
+    color_temperature_ = settings_.PostProcessingEnabled();
+    color_temp_ = settings_.ColorTemperature();
+    color_brightness_ = settings_.ColorBrightness();
 
     colour_mask_ = (float*)malloc(sizeof(float) * 3);
 #pragma warning( push )
@@ -91,9 +95,13 @@ auto HandOverlay::Initialize() -> void
     this->UpdateDeviceTransform();
 }
 
-auto HandOverlay::Render() -> void
+auto HandOverlay::Render() -> bool
 {
-    ImGui::SetCurrentContext(this->Context());
+    if (!Overlay::Render())
+        return false;
+
+    if (!(this->DisplayMode() == Overlay_DisplayMode_Always || (this->DisplayMode() == Overlay_DisplayMode_Dashboard && vr::VROverlay()->IsDashboardVisible())))
+        return false;
 
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplOpenVR_NewFrame();
@@ -704,8 +712,9 @@ auto HandOverlay::Render() -> void
     }
     
     ImGui::End();
-
     ImGui::Render();
+
+    return true;
 }
 
 auto HandOverlay::Update() -> void
@@ -925,6 +934,39 @@ auto HandOverlay::Update() -> void
                 tracked_devices_.erase(it);
             }
         }
+    }
+
+    if (this->IsVisible() && !vr::VROverlay()->IsDashboardVisible() && this->DisplayMode() == Overlay_DisplayMode_Dashboard)
+        this->Hide();
+
+    if (this->IsVisible() && vr::VROverlay()->IsDashboardVisible() && !this->ShouldRender())
+        this->Hide();
+
+    if (!this->IsVisible() && (this->DisplayMode() == Overlay_DisplayMode_Always || (this->DisplayMode() == Overlay_DisplayMode_Dashboard && vr::VROverlay()->IsDashboardVisible())) && this->ShouldRender())
+        this->Show();
+
+    const auto handedness = static_cast<vr::ETrackedControllerRole>(this->Handedness());
+    const auto scale = this->OverlayScale();
+
+    // Device relative offset
+    const auto transform = this->Transform();
+    glm::vec3 position = transform.position;
+    glm::quat rotation = transform.rotation;
+
+    if (g_overlay_width != scale) {
+        this->SetWidth(scale);
+        g_overlay_width = scale;
+    }
+
+    auto hand_index = vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(handedness);
+    if (g_overlay_handedness != handedness || (g_position != position && g_rotation != rotation) || g_last_index == vr::k_unTrackedDeviceIndexInvalid && hand_index != vr::k_unTrackedDeviceIndexInvalid) {
+        this->SetTransformDeviceRelative(handedness, position, rotation);
+        g_overlay_handedness = handedness;
+        g_position = position;
+        g_rotation = rotation;
+
+        if (g_last_index == vr::k_unTrackedDeviceIndexInvalid)
+            g_last_index = hand_index;
     }
 }
 

@@ -54,14 +54,13 @@ class HandOverlay : public Overlay
 {
 public:
     explicit HandOverlay();
-    auto Initialize() -> void;
 
     [[nodiscard]] auto DisplayMode() const -> Overlay_DisplayMode { return display_mode_; }
     [[nodiscard]] auto OverlayScale() const -> float { return overlay_scale_; }
     [[nodiscard]] auto Handedness() const -> int { return handedness_; }
     [[nodiscard]] auto Transform() const -> OverlayTransform { return transform_; }
 
-    auto Render() -> void override;
+    auto Render() -> bool override;
     auto Update() -> void override;
     auto Destroy() -> void;
     auto Reset() -> void;

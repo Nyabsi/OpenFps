@@ -43,19 +43,13 @@ extern "C" __declspec(dllexport) unsigned long AmdPowerXpressRequestHighPerforma
 #endif
 
 VulkanRenderer* g_vulkanRenderer = new VulkanRenderer();
+
 static HandOverlay* g_performanceOverlay;
 static DashboardOverlay* g_ProcessList;
 
 static uint64_t g_last_frame_time = SDL_GetTicksNS();
 static float g_hmd_refresh_rate = 24.0f;
 static bool g_ticking = true;
-static bool g_keyboard_global_show = false;
-static float g_overlay_width = -1.0f;
-static uint32_t last_index = vr::k_unTrackedDeviceIndexInvalid;
-
-static vr::ETrackedControllerRole g_overlay_handedness = vr::TrackedControllerRole_Invalid;
-static glm::vec3 g_position = {};
-static glm::quat g_rotation = {};
 
 #define APP_KEY     "Nyabsi.OpenFps"
 #define APP_NAME    "OpenFps"
@@ -105,8 +99,6 @@ int main(
     g_vulkanRenderer->Initialize();
 
     g_performanceOverlay = new HandOverlay();
-    g_performanceOverlay->Initialize();
-
     g_ProcessList = new DashboardOverlay();
 
     UpdateApplicationRefreshRate();
@@ -152,14 +144,6 @@ int main(
                     }
                     break;
                 }
-                case vr::VREvent_KeyboardOpened_Global:
-                    if (vr_event.data.keyboard.overlayHandle != g_performanceOverlay->Handle())
-                        g_keyboard_global_show = true;
-                    break;
-                case vr::VREvent_KeyboardClosed_Global:
-                    if (vr_event.data.keyboard.overlayHandle != g_performanceOverlay->Handle())
-                        g_keyboard_global_show = false;
-                    break;
                 case vr::VREvent_Quit:
                 {
                     vr::VRSystem()->AcknowledgeQuit_Exiting();
@@ -168,53 +152,14 @@ int main(
                 }
             }
         }
-
-        if (g_performanceOverlay->IsVisible() && !vr::VROverlay()->IsDashboardVisible() && g_performanceOverlay->DisplayMode() == Overlay_DisplayMode_Dashboard)
-            g_performanceOverlay->Hide();
-
-        if (g_performanceOverlay->IsVisible() && vr::VROverlay()->IsDashboardVisible() && g_keyboard_global_show)
-            g_performanceOverlay->Hide();
-
-        if (!g_performanceOverlay->IsVisible() && (g_performanceOverlay->DisplayMode() == Overlay_DisplayMode_Always || (g_performanceOverlay->DisplayMode() == Overlay_DisplayMode_Dashboard && vr::VROverlay()->IsDashboardVisible())) && !g_keyboard_global_show)
-            g_performanceOverlay->Show();
-
-        const auto handedness = static_cast<vr::ETrackedControllerRole>(g_performanceOverlay->Handedness());
-        const auto scale = g_performanceOverlay->OverlayScale();
-
-        // Device relative offset
-        const auto transform = g_performanceOverlay->Transform();
-        glm::vec3 position = transform.position;
-        glm::quat rotation = transform.rotation;
-
-        if (g_overlay_width != scale) {
-            g_performanceOverlay->SetWidth(scale);
-            g_overlay_width = scale;
-        }
-
-        auto hand_index = vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(handedness);
-        if (g_overlay_handedness != handedness || (g_position != position && g_rotation != rotation) || last_index == vr::k_unTrackedDeviceIndexInvalid && hand_index != vr::k_unTrackedDeviceIndexInvalid) {
-            g_performanceOverlay->SetTransformDeviceRelative(handedness, position, rotation);
-            g_overlay_handedness = handedness;
-            g_position = position;
-            g_rotation = rotation;
-
-            if (last_index == vr::k_unTrackedDeviceIndexInvalid)
-                last_index = hand_index;
-        }
-
         
         g_performanceOverlay->Update();
-        g_performanceOverlay->Render();
-
-        if ((g_performanceOverlay->DisplayMode() == Overlay_DisplayMode_Always || (g_performanceOverlay->DisplayMode() == Overlay_DisplayMode_Dashboard && vr::VROverlay()->IsDashboardVisible())) && !g_keyboard_global_show) {
+        if (g_performanceOverlay->Render())
             g_performanceOverlay->Draw();
-        }
 
-        if (g_ProcessList->IsVisible()) {
-            g_ProcessList->Update();
-            g_ProcessList->Render();
+        g_ProcessList->Update();
+        if (g_ProcessList->Render())
             g_ProcessList->Draw();
-        }
 
         uint64_t target_time = static_cast<uint64_t>((static_cast<float>(1000000000) / g_hmd_refresh_rate));
         const uint64_t frame_duration = (SDL_GetTicksNS() - g_last_frame_time);
