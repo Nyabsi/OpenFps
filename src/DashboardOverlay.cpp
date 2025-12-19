@@ -80,7 +80,7 @@ auto DashboardOverlay::Render() -> void
         ImGuiTableFlags_SizingStretchProp |
         ImGuiTableFlags_Sortable;
 
-    if (ImGui::BeginTable("process_list", 8, flags))
+    if (ImGui::BeginTable("process_list", 9, flags))
     {
         ImGui::TableSetupColumn("PID");
         ImGui::TableSetupColumn("Name");
@@ -89,6 +89,7 @@ auto DashboardOverlay::Render() -> void
         ImGui::TableSetupColumn("Video %");
         ImGui::TableSetupColumn("D-VRAM");
         ImGui::TableSetupColumn("S-VRAM");
+        ImGui::TableSetupColumn("RAM");
         ImGui::TableSetupColumn("Actions");
         ImGui::TableHeadersRow();
 
@@ -153,6 +154,12 @@ auto DashboardOverlay::Render() -> void
                             b.gpu.memory.shared_vram_usage
                             : a.gpu.memory.shared_vram_usage >
                             b.gpu.memory.shared_vram_usage;
+
+                        case 7: return s.SortDirection == ImGuiSortDirection_Ascending
+                            ? a.info.memory_usage <
+                            b.info.memory_usage
+                            : a.info.memory_usage >
+                            b.info.memory_usage;
                         }
                         return false;
                     });
@@ -192,6 +199,10 @@ auto DashboardOverlay::Render() -> void
                 row.gpu.memory.shared_vram_usage / (1000.0f * 1000.0f));
 
             ImGui::TableSetColumnIndex(7);
+            ImGui::Text("%.0f MB",
+                row.info.memory_usage / (1024.0f * 1024.0f));
+
+            ImGui::TableSetColumnIndex(8);
             ImGui::PushID(row.pid);
             if (ImGui::Button("Kill"))
             {
