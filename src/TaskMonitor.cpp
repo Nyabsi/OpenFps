@@ -26,6 +26,7 @@ TaskMonitor::TaskMonitor()
     pdh_kernel_process_time_ = { };
     pdh_total_process_time_ = { };
     system_info_ = { };
+    system_memory_ = { };
     dxgi_factory_ = nullptr;
 }
 
@@ -65,6 +66,10 @@ auto TaskMonitor::Initialize() -> void
         PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\% Processor Time", 0, &pdh_total_process_time_);
         if (result != ERROR_SUCCESS)
             throw std::runtime_error("Failed to register counter (Processor Time) through PdhAddCounterA");
+
+        PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\Working Set", 0, &pdh_process_memory_);
+        if (result != ERROR_SUCCESS)
+            throw std::runtime_error("Failed to register counter (Processor Time) through PdhAddCounterA");
     }
     catch (std::exception& ex) {
 #ifdef _WIN32
@@ -77,6 +82,8 @@ auto TaskMonitor::Initialize() -> void
     }
 
     GetSystemInfo(&system_info_);
+    system_memory_.dwLength = sizeof(system_memory_);
+    GlobalMemoryStatusEx(&system_memory_);
     CreateDXGIFactory1(__uuidof(IDXGIFactory6), (void**)&dxgi_factory_);
 }
 
@@ -91,8 +98,10 @@ auto TaskMonitor::Destroy() -> void
     PdhRemoveCounter(pdh_user_process_time_);
     PdhRemoveCounter(pdh_kernel_process_time_);
     PdhRemoveCounter(pdh_total_process_time_);
+    PdhRemoveCounter(pdh_process_memory_);
 
     system_info_ = { };
+    system_memory_ = { };
     dxgi_factory_->Release();
 }
 
@@ -115,6 +124,8 @@ auto TaskMonitor::Update() -> void
     calculateCpuMetricFromCounter(pdh_user_process_time_, CpuMetric_User_Time);
     calculateCpuMetricFromCounter(pdh_kernel_process_time_, CpuMetric_Priviledged_Time);
     calculateCpuMetricFromCounter(pdh_total_process_time_, CpuMetric_Total_Time);
+
+    calculateMemoryMetricFromCounter(pdh_process_memory_);
 
     for (auto it = process_list_.begin(); it != process_list_.end(); ) {
         // If the process name is empty but allocates VRAM it's an system process
@@ -143,6 +154,7 @@ auto TaskMonitor::Update() -> void
         process.cpu.user_cpu_usage /= system_info_.dwNumberOfProcessors;
         process.cpu.kernel_cpu_usage /= system_info_.dwNumberOfProcessors;
         process.cpu.total_cpu_usage /= system_info_.dwNumberOfProcessors;
+        process.memory_available = system_memory_.ullTotalPhys;
     }
 }
 
@@ -310,6 +322,45 @@ auto TaskMonitor::calculateCpuMetricFromCounter(PDH_HCOUNTER counter, CpuMetric_
                         process_list_[pid].cpu.total_cpu_usage = items[i].FmtValue.doubleValue;
                         break;
                     }
+                }
+            }
+        }
+    }
+
+    free(items);
+    bufferSize = 0;
+}
+
+auto TaskMonitor::calculateMemoryMetricFromCounter(PDH_HCOUNTER counter) -> void
+{
+    PDH_STATUS result = {};
+
+    auto pidFromName = [&](const std::string name) -> int {
+        for (auto& [pid, process] : process_list_) {
+            if (process.process_name == name) {
+                return pid;
+            }
+        }
+        return -1;
+        };
+
+    DWORD bufferSize = 0;
+    DWORD itemCount = 0;
+    PDH_FMT_COUNTERVALUE_ITEM* items = nullptr;
+
+    result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_DOUBLE | PDH_FMT_NOCAP100, &bufferSize, &itemCount, nullptr);
+    if (result != PDH_MORE_DATA)
+        throw std::runtime_error("Failed to get formatted counter array size (Working Set) through PdhGetFormattedCounterArrayA");
+
+    items = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(bufferSize);
+    result = PdhGetFormattedCounterArrayA(counter, PDH_FMT_DOUBLE | PDH_FMT_NOCAP100, &bufferSize, &itemCount, items);
+
+    for (DWORD i = 0; i < itemCount; ++i) {
+        if (items != nullptr && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
+            uint32_t pid = pidFromName(items[i].szName);
+            if (pid != -1) {
+                if (strcmp(items[i].szName, "Idle") != 0 && strcmp(items[i].szName, "_Total") != 0) {
+                    process_list_[pid].memory_usage = items[i].FmtValue.doubleValue;
                 }
             }
         }

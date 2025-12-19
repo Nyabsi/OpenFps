@@ -365,18 +365,22 @@ auto HandOverlay::Render() -> void
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
+                ImGui::Text("RAM");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text(
+                    "%.0f MB (%.1f%%)",
+                    process_info.memory_usage / (1024.0f * 1024.0f),
+                    gpu_info.memory.dedicated_available > 0
+                    ? (process_info.memory_usage * 100.0f) / process_info.memory_available
+                    : 0.0f
+                );
+
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
                 ImGui::Text("Bottleneck");
                 ImGui::TableSetColumnIndex(1);
                 ImGui::TextColored(bottleneck_ ? Color_Orange : Color_Green, "%s", bottleneck_ ? (bottleneck_flags_ == BottleneckSource_Flags_Wireless ? "Wireless" : bottleneck_flags_ == BottleneckSource_Flags_CPU ? "CPU" : "GPU") : "None");
 
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("W-Latency");
-                ImGui::TableSetColumnIndex(1);
-                if (wireless_latency_ > 0.0f)
-                    ImGui::TextColored(Color_LightBlue, "%.1f ms", wireless_latency_);
-                else
-                    ImGui::TextColored(Color_Magenta, "N/A");
                 ImGui::Unindent(10.0f);
 
                 ImGui::EndTable();
