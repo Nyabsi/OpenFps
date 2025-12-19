@@ -117,6 +117,7 @@ auto HandOverlay::Render() -> void
         ImGui::Indent(10.0f);
         auto pid = GetCurrentGamePid();
         if (pid > 0) {
+            // TODO: check if last_pid actually exists before doing reset, if game utilizes SteamVR Compositor GetCurrentGamePid might return wrong pid temporarily causing stat reset.
             if (last_pid != pid) {
                 this->Reset();
                 last_pid = pid;
@@ -942,6 +943,12 @@ auto HandOverlay::Reset() -> void
     memset(gpu_frame_times_.data(), 0x0, cpu_frame_times_.size() * sizeof(FrameTimeInfo));
 
     frame_index_ = 0;
+
+    total_missed_frames_ = 0;
+    total_predicted_frames_ = 0;
+    total_dropped_frames_ = 0;
+    total_throttled_frames_ = 0;
+    total_frames_ = 0;
 }
 
 auto HandOverlay::SetFrameTime(float refresh_rate) -> void
