@@ -239,23 +239,21 @@ auto Overlay::Update() -> void
     while (vr::VROverlay()->PollNextOverlayEvent(this->Handle(), &vr_event, sizeof(vr_event)))
     {
         if (vr_event.eventType == vr::VREvent_KeyboardOpened_Global) {
-            if (vr_event.data.keyboard.overlayHandle != this->Handle())
+            if (vr_event.data.keyboard.overlayHandle != this->Handle()) {
                 keyboard_global_show_ = true;
+                this->Hide();
+            }
         }
 
         if (vr_event.eventType == vr::VREvent_KeyboardClosed_Global) {
-            if (vr_event.data.keyboard.overlayHandle != this->Handle())
+            if (vr_event.data.keyboard.overlayHandle != this->Handle()) {
                 keyboard_global_show_ = false;
+                this->Show();
+            }
         }
 
         ImGui_ImplOpenVR_ProcessOverlayEvent(vr_event);
-    }
-
-    if (keyboard_global_show_ && type_ == vr::VROverlayType_World)
-        this->Hide();
-
-    if (!keyboard_global_show_ && type_ == vr::VROverlayType_World)
-        this->Show();
+    }   
 }
 
 auto Overlay::Draw() -> void

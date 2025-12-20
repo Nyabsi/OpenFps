@@ -10,7 +10,7 @@ class Overlay : public VrOverlay {
 public:
 	[[nodiscard]] auto Surface() const noexcept -> Vulkan_Surface* { return surface_.get(); }
 	[[nodiscard]] auto Context() const noexcept -> ImGuiContext* { return context_; }
-	[[nodiscard]] auto ShouldRender() const noexcept -> bool { return !keyboard_global_show_ && type_ == vr::VROverlayType_World; }
+	[[nodiscard]] auto ShouldRender() const noexcept -> bool { return !keyboard_global_show_ && type_ == vr::VROverlayType_World }
 
 	Overlay(const std::string& appKey, const std::string& name, vr::VROverlayType type, int width, int height);
 	virtual ~Overlay();

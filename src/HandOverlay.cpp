@@ -111,7 +111,7 @@ auto HandOverlay::Render() -> bool
     if (!Overlay::Render())
         return false;
 
-    if (!(this->DisplayMode() == Overlay_DisplayMode_Always || (this->DisplayMode() == Overlay_DisplayMode_Dashboard && vr::VROverlay()->IsDashboardVisible())))
+    if (this->DisplayMode() == Overlay_DisplayMode_Dashboard && !vr::VROverlay()->IsDashboardVisible())
         return false;
 
     ImGui_ImplVulkan_NewFrame();
@@ -947,14 +947,23 @@ auto HandOverlay::Update() -> void
         }
     }
 
-    if (this->IsVisible() && !vr::VROverlay()->IsDashboardVisible() && this->DisplayMode() == Overlay_DisplayMode_Dashboard)
-        this->Hide();
+    switch (this->DisplayMode()) {
+        case Overlay_DisplayMode_Always:
+        {
+            if (!this->IsVisible() && this->ShouldRender())
+                this->Show();
+            break;
+        }
+        case Overlay_DisplayMode_Dashboard:
+        {
+            if (this->IsVisible() && !vr::VROverlay()->IsDashboardVisible() && this->ShouldRender())
+                this->Hide();
 
-    if (this->IsVisible() && vr::VROverlay()->IsDashboardVisible() && !this->ShouldRender())
-        this->Hide();
-
-    if (!this->IsVisible() && (this->DisplayMode() == Overlay_DisplayMode_Always || (this->DisplayMode() == Overlay_DisplayMode_Dashboard && vr::VROverlay()->IsDashboardVisible())) && this->ShouldRender())
-        this->Show();
+            if (!this->IsVisible() && vr::VROverlay()->IsDashboardVisible() && this->ShouldRender())
+                this->Show();
+            break;
+        }
+    }
 
     const auto handedness = static_cast<vr::ETrackedControllerRole>(this->Handedness());
     const auto scale = this->OverlayScale();
