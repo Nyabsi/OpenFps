@@ -4,8 +4,7 @@
 // Implemented features:
 //  [X] Platform: Virtual keyboard support
 //  [X] Platform: Mouse emulation
-// Missing features or Issues:
-//  [ ] Platform: Touch Emulation
+//  [X] Platform: Laser input
 
 // You can use unmodified imgui_impl_* files in your project. See examples/ folder for examples of using this.
 // Prefer including the entire imgui/ repository into your project (either as a copy or as a submodule), and only build the backends you need.
@@ -21,6 +20,7 @@
 
 namespace vr {
 	struct VREvent_t;
+	enum ETrackedControllerRole;
 }
 
 struct ImGui_ImplOpenVR_InitInfo
@@ -33,6 +33,7 @@ struct ImGui_ImplOpenVR_InitInfo
 // Follow "Getting Started" link and check examples/ folder to learn about using backends!
 IMGUI_IMPL_API bool     ImGui_ImplOpenVR_Init(ImGui_ImplOpenVR_InitInfo* initInfo);
 IMGUI_IMPL_API bool		ImGui_ImplOpenVR_ProcessOverlayEvent(const vr::VREvent_t& event);
+IMGUI_IMPL_API void		ImGui_ImplOpenVR_ProcessLaserInput(vr::ETrackedControllerRole role);
 IMGUI_IMPL_API void     ImGui_ImplOpenVR_Shutdown();
 IMGUI_IMPL_API void     ImGui_ImplOpenVR_NewFrame();
 

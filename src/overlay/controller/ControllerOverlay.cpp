@@ -117,6 +117,10 @@ auto ControllerOverlay::Render() -> bool
     ImGui_ImplOpenVR_NewFrame();
     ImGui::NewFrame();
 
+
+    if (!vr::VROverlay()->IsDashboardVisible())
+        ImHelper::DrawCursor();
+
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 pos = ImVec2(io.DisplaySize.x, io.DisplaySize.y);
 
@@ -125,8 +129,11 @@ auto ControllerOverlay::Render() -> bool
 
     ImGui::Begin("OpenFps", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove);
 
-    if ((!vr::VROverlay()->IsHoverTargetOverlay(this->Handle()) && !io.WantTextInput) || !vr::VROverlay()->IsDashboardVisible()) {
-
+    const ImVec2 mousePos = ImGui::GetIO().MousePos;
+    if (!io.WantTextInput && (
+        (!vr::VROverlay()->IsDashboardVisible() && (mousePos.x < 0.0f || mousePos.y < 0.0f)) ||
+        (vr::VROverlay()->IsDashboardVisible() && !vr::VROverlay()->IsHoverTargetOverlay(this->Handle())))
+    ) {
         ImGuiStyle& style = ImGui::GetStyle();
 
         GpuInfo gpu_info = {};
@@ -986,6 +993,13 @@ auto ControllerOverlay::Update() -> void
 
         if (g_last_index == vr::k_unTrackedDeviceIndexInvalid)
             g_last_index = hand_index;
+    }
+
+    if (!vr::VROverlay()->IsDashboardVisible()) {
+        if (handedness == vr::TrackedControllerRole_LeftHand)
+            ImGui_ImplOpenVR_ProcessLaserInput(vr::TrackedControllerRole_RightHand);
+        else if (handedness == vr::TrackedControllerRole_RightHand)
+            ImGui_ImplOpenVR_ProcessLaserInput(vr::TrackedControllerRole_LeftHand);
     }
 }
 

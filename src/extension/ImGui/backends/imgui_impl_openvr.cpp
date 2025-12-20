@@ -4,8 +4,7 @@
 // Implemented features:
 //  [X] Platform: Virtual keyboard support
 //  [X] Platform: Mouse emulation
-// Missing features or Issues:
-//  [ ] Platform: Touch Emulation
+//  [X] Platform: Laser input
 
 // You can use unmodified imgui_impl_* files in your project. See examples/ folder for examples of using this.
 // Prefer including the entire imgui/ repository into your project (either as a copy or as a submodule), and only build the backends you need.
@@ -38,7 +37,6 @@ struct ImGui_ImplOpenVR_Data {
 #endif
     uint64_t time;
     vr::HmdVector2_t mouse_scale;
-
     ImGui_ImplOpenVR_Data() { memset((void*)this, 0, sizeof(*this)); }
 };
 
@@ -234,6 +232,93 @@ bool ImGui_ImplOpenVR_ProcessOverlayEvent(const vr::VREvent_t& event)
     return true;
 }
 
+void ImGui_ImplOpenVR_ProcessLaserInput(vr::ETrackedControllerRole role)
+{
+    ImGui_ImplOpenVR_Data* bd = ImGui_ImplOpenVR_GetBackendData();
+    IM_ASSERT(bd != nullptr && "Context or backend not initialized!");
+
+    ImGuiIO& io = ImGui::GetIO();
+
+    vr::TrackedDeviceIndex_t controller = vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(role);
+    if (controller == vr::k_unTrackedDeviceIndexInvalid)
+        return;
+
+    vr::TrackedDevicePose_t poses[vr::k_unMaxTrackedDeviceCount] = {};
+    vr::VRSystem()->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseSeated, 0.0f, poses, vr::k_unMaxTrackedDeviceCount);
+
+    const vr::TrackedDevicePose_t& pose = poses[controller];
+    if (!pose.bPoseIsValid)
+        return;
+
+    vr::VRControllerState_t controllerState = {};
+    vr::VRSystem()->GetControllerState(controller, &controllerState, sizeof(controllerState));
+
+    vr::HmdMatrix34_t finalMatrix = pose.mDeviceToAbsoluteTracking;
+
+    char renderModelName[vr::k_unMaxPropertyStringSize] = {};
+    vr::VRSystem()->GetStringTrackedDeviceProperty(
+        controller,
+        vr::Prop_RenderModelName_String,
+        renderModelName,
+        sizeof(renderModelName)
+    );
+
+    vr::RenderModel_ControllerMode_State_t controllerModeState = {};
+    vr::RenderModel_ComponentState_t componentState = {};
+
+    if (vr::VRRenderModels()->GetComponentState(renderModelName, "grip", &controllerState, &controllerModeState, &componentState)) {
+        vr::HmdMatrix34_t result = {};
+
+        for (int i = 0; i < 3; i++)
+        {
+            for (int j = 0; j < 4; j++)
+            {
+                result.m[i][j] = 0.0f;
+                for (int k = 0; k < 3; k++)
+                    result.m[i][j] +=
+                    finalMatrix.m[i][k] *
+                    componentState.mTrackingToComponentRenderModel.m[k][j];
+
+                if (j == 3)
+                    result.m[i][j] += finalMatrix.m[i][3];
+            }
+        }
+
+        finalMatrix = result;
+    }
+
+    vr::HmdVector3_t origin = {
+        finalMatrix.m[0][3],
+        finalMatrix.m[1][3],
+        finalMatrix.m[2][3]
+    };
+
+    vr::HmdVector3_t direction = {
+        -finalMatrix.m[0][2],
+        -finalMatrix.m[1][2],
+        -finalMatrix.m[2][2]
+    };
+
+    vr::VROverlayIntersectionParams_t params = {};
+    params.eOrigin = vr::TrackingUniverseSeated;
+    params.vSource = origin;
+    params.vDirection = direction;
+
+    vr::VROverlayIntersectionResults_t results = {};
+
+    if (!vr::VROverlay()->ComputeOverlayIntersection(bd->handle, &params, &results))
+    {
+        io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+        return;
+    }
+
+    const float x = results.vUVs.v[0] * io.DisplaySize.x;
+    const float y = (1.0f - results.vUVs.v[1]) * io.DisplaySize.y;
+
+    io.AddMousePosEvent(x, y);
+    io.AddMouseButtonEvent(ImGuiMouseButton_Left, controllerState.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_SteamVR_Trigger));
+}
+
 void ImGui_ImplOpenVR_Shutdown()
 {
     ImGui_ImplOpenVR_Data* bd = ImGui_ImplOpenVR_GetBackendData();
@@ -288,6 +373,13 @@ void ImGui_ImplOpenVR_NewFrame()
         io.DisplayFramebufferScale = ImVec2(1, 1);
         bd->mouse_scale = { io.DisplaySize.x, io.DisplaySize.y };
         vr::VROverlay()->SetOverlayMouseScale(bd->handle, &bd->mouse_scale);
+
+        vr::VRTextureBounds_t bounds;
+        bounds.uMin = 0.0f;
+        bounds.uMax = 1.0f;
+        bounds.vMin = 0.0f;
+        bounds.vMax = 1.0f;
+        vr::VROverlay()->SetOverlayTextureBounds(bd->handle, &bounds);
     }
 
     io.DeltaTime = ImGui_ImplOpenVR_GetDeltaTime();

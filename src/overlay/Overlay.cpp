@@ -9,6 +9,8 @@
 #include <Windows.h>
 #endif
 
+#include <openvr.h>
+
 #include <imgui.h>
 #include <helper/ImHelper.h>
 
@@ -45,6 +47,7 @@ Overlay::Overlay(const std::string& appKey, const std::string& name, vr::VROverl
     io.ConfigFlags |= ImGuiConfigFlags_IsSRGB;
 
     io.IniFilename = nullptr;
+    io.MouseDrawCursor = false;
 
     ImGui::StyleColorsDark();
 
@@ -256,7 +259,7 @@ auto Overlay::Update() -> void
         }
 
         ImGui_ImplOpenVR_ProcessOverlayEvent(vr_event);
-    }   
+    }
 }
 
 auto Overlay::Draw() -> void
