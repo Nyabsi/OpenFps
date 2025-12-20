@@ -4,9 +4,10 @@
 
 #include <imgui.h>
 
-#include "Overlay.hpp"
-#include "TaskMonitor.hpp"
-#include "Settings.hpp"
+#include <core/TaskMonitor.hpp>
+#include <core/Settings.hpp>
+
+#include <overlay/Overlay.hpp>
 
 class DashboardOverlay : public Overlay
 {

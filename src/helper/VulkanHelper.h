@@ -6,6 +6,12 @@
 #include <vulkan/vulkan.h>
 #include <openvr.h>
 
+#ifdef _WIN32
+#include <Windows.h> // MessageBoxA
+#endif
+
+#include <config.hpp>
+
 #define VK_VALIDATE_RESULT(e)                                  \
     if (e != VK_SUCCESS)                                       \
         fprintf(stderr, "[Vulkan] Error: VkResult = %d\n", e); \
@@ -19,7 +25,7 @@ static auto IsVulkanInstanceExtensionAvailable(std::string extension) -> bool
             if (strcmp(p.extensionName, extension.c_str()) == 0)
                 return true;
         return false;
-        };
+    };
 
     uint32_t extension_properties_count = {};
     std::vector<VkExtensionProperties> extension_properties = {};
@@ -84,7 +90,12 @@ static auto GetVulkanInstanceExtensionsRequiredByOpenVR() -> std::vector<std::st
             if (IsVulkanInstanceExtensionAvailable(token)) {
                 result.push_back(token);
             } else {
-                printf("ERROR! %s instance extension asked by OpenVR was NOT available\n", token.c_str());
+#ifdef _WIN32
+                char error_message[512] = {};
+                snprintf(error_message, 512, "ERROR! %s instance extension asked by OpenVR was NOT available.\n", token.c_str());
+                MessageBoxA(NULL, error_message, APP_NAME, MB_OK);
+#endif
+                printf("ERROR! %s instance extension asked by OpenVR was NOT available.\n", token.c_str());
                 std::exit(EXIT_FAILURE);
             }
         }
@@ -115,6 +126,11 @@ static auto GetVulkanDeviceExtensionsRequiredByOpenVR(const VkPhysicalDevice& de
             if (IsVulkanDeviceExtensionAvailable(device, token.data())) {
                 result.push_back(token);
             } else {
+#ifdef _WIN32
+                char error_message[512] = {};
+                snprintf(error_message, 512, "ERROR! %s device extension asked by OpenVR was NOT available\n", token.c_str());
+                MessageBoxA(NULL, error_message, APP_NAME, MB_OK);
+#endif
                 printf("ERROR! %s device extension asked by OpenVR was NOT available\n", token.c_str());
                 std::exit(EXIT_FAILURE);
             }

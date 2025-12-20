@@ -1,15 +1,18 @@
 #include "Overlay.hpp"
 
 #include <backends/imgui_impl_vulkan.h>
-#include "backends/imgui_impl_openvr.h"
-#include "VulkanRenderer.h"
+#include <extension/ImGui/backends/imgui_impl_openvr.h>
+
+#include <renderer/VulkanRenderer.h>
 
 #ifdef _WIN32
 #include <Windows.h>
 #endif
 
 #include <imgui.h>
-#include "ImHelper.h"
+#include <helper/ImHelper.h>
+
+#include <config.hpp>
 
 Overlay::Overlay(const std::string& appKey, const std::string& name, vr::VROverlayType type, int width, int height) : VrOverlay()
 {
@@ -25,7 +28,7 @@ Overlay::Overlay(const std::string& appKey, const std::string& name, vr::VROverl
 #ifdef _WIN32
         char error_message[512] = {};
         snprintf(error_message, 512, "Failed to create overlay.\nReason: %s\r\n", ex.what());
-        MessageBoxA(NULL, error_message, "OpenFps", MB_OK);
+        MessageBoxA(NULL, error_message, APP_NAME, MB_OK);
 #endif
         printf("%s\n\n", ex.what());
         std::exit(EXIT_FAILURE);

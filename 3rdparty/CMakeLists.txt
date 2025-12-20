@@ -22,12 +22,13 @@ target_include_directories(vulkan INTERFACE ${Vulkan_INCLUDE_DIRS})
 add_library(ImGui STATIC
     ${ImGui_ROOT}/backends/imgui_impl_vulkan.cpp
     ${ImGui_ROOT}/backends/imgui_impl_sdl3.cpp
-	${CMAKE_SOURCE_DIR}/src/backends/imgui_impl_openvr.cpp
     ${ImGui_ROOT}/imgui.cpp
 	${ImGui_ROOT}/imgui_demo.cpp
 	${ImGui_ROOT}/imgui_draw.cpp
 	${ImGui_ROOT}/imgui_tables.cpp
 	${ImGui_ROOT}/imgui_widgets.cpp
+	# custom ImGui OpenVR backend
+	${CMAKE_SOURCE_DIR}/src/extension/ImGui/backends/imgui_impl_openvr.cpp
 	# ImPlot
 	${ImPlot_ROOT}/implot.cpp
 	${ImPlot_ROOT}/implot_items.cpp

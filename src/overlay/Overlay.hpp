@@ -2,7 +2,8 @@
 
 #include <string>
 #include <imgui.h>
-#include "VrOverlay.h"
+
+#include <extension/OpenVR/VrOverlay.h>
 
 struct Vulkan_Surface;
 

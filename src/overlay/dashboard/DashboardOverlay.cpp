@@ -2,10 +2,14 @@
 
 #include <algorithm>
 #include <chrono>
+
 #include <SDL3/SDL.h>
+
 #include <imgui.h>
 #include <backends/imgui_impl_vulkan.h>
-#include "backends/imgui_impl_openvr.h"
+#include <extension/ImGui/backends/imgui_impl_openvr.h>
+
+#include <config.hpp>
 
 #define OVERLAY_KEY     "Nyabsi.OpenFps"
 #define OVERLAY_NAME    "OpenFps Dashboard"
@@ -43,7 +47,7 @@ DashboardOverlay::DashboardOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::VR
 #ifdef _WIN32
         char error_message[512] = {};
         snprintf(error_message, 512, "Failed to initialize the overlay.\nReason: %s\r\n", ex.what());
-        MessageBoxA(NULL, error_message, "OpenFps", MB_OK);
+        MessageBoxA(NULL, error_message, APP_NAME, MB_OK);
 #endif
         printf("%s\n\n", ex.what());
         std::exit(EXIT_FAILURE);

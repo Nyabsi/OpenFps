@@ -1,0 +1,1 @@
+This folder contains custom ImGui extensions for OpenVR, actual ImGui is downloaded through an git repository to 3rdparty in the project root.

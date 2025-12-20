@@ -1,14 +1,16 @@
 #include "VulkanRenderer.h"
 
-#include "VulkanUtils.h"
-
 #include <ranges>
+
+#include <helper/VulkanHelper.h>
 
 #include <imgui.h>
 #include <backends/imgui_impl_vulkan.h>
 
 #include <openvr.h>
-#include "Overlay.hpp"
+#include <overlay/Overlay.hpp>
+
+#include <config.hpp>
 
 VulkanRenderer::VulkanRenderer() 
 {

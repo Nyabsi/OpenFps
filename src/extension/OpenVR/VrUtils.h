@@ -27,11 +27,6 @@ static auto OpenVRManifestInstalled(const char* appKey) -> bool
     return vr::VRApplications()->IsApplicationInstalled(appKey);
 }
 
-static auto OpenVRManifestInstalled2(const char* appKey) -> bool
-{
-    // return vr::VRApplications()->Start(appKey);
-}
-
 static auto GetCurrentGamePid() -> uint64_t {
 	return vr::VRApplications()->GetCurrentSceneProcessId();
 }

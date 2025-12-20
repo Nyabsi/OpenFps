@@ -12,7 +12,7 @@
 
 #include <openvr.h>
 
-#include "Overlay.hpp"
+#include <overlay/Overlay.hpp>
 
 struct Vulkan_Frame;
 struct Vulkan_FrameSemaphore;

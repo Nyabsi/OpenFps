@@ -4,10 +4,9 @@
 
 #include <imgui.h>
 
-#include "VrOverlay.h"
-#include "Overlay.hpp"
-#include "TaskMonitor.hpp"
-#include "Settings.hpp"
+#include <core/TaskMonitor.hpp>
+#include <core/Settings.hpp>
+#include <overlay/Overlay.hpp>
 
 enum FrameTimeInfo_Flags : uint32_t {
     FrameTimeInfo_Flags_None = 0,
@@ -50,10 +49,10 @@ struct OverlayTransform {
     glm::quat rotation = {};
 };
 
-class HandOverlay : public Overlay
+class ControllerOverlay : public Overlay
 {
 public:
-    explicit HandOverlay();
+    explicit ControllerOverlay();
 
     [[nodiscard]] auto DisplayMode() const -> Overlay_DisplayMode { return display_mode_; }
     [[nodiscard]] auto OverlayScale() const -> float { return overlay_scale_; }

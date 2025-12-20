@@ -26,16 +26,15 @@
 
 #include <openvr.h>
 
-#include "VulkanRenderer.h"
-#include "VulkanUtils.h"
+#include <config.hpp>
 
-#include "HandOverlay.h"
-#include "DashboardOverlay.h"
+#include <renderer/VulkanRenderer.h>
+#include <helper/VulkanHelper.h>
 
-#include "VrOverlay.h"
-#include "VrUtils.h"
+#include <overlay/controller/ControllerOverlay.h>
+#include <overlay/dashboard/DashboardOverlay.h>
 
-#include "backends/imgui_impl_openvr.h"
+#include <extension/OpenVR/VrUtils.h>
 
 #ifdef _WIN32
 extern "C" __declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
@@ -44,15 +43,12 @@ extern "C" __declspec(dllexport) unsigned long AmdPowerXpressRequestHighPerforma
 
 VulkanRenderer* g_vulkanRenderer = new VulkanRenderer();
 
-static HandOverlay* g_performanceOverlay;
+static ControllerOverlay* g_processInformation;
 static DashboardOverlay* g_ProcessList;
 
 static uint64_t g_last_frame_time = SDL_GetTicksNS();
 static float g_hmd_refresh_rate = 24.0f;
 static bool g_ticking = true;
-
-#define APP_KEY     "Nyabsi.OpenFps"
-#define APP_NAME    "OpenFps"
 
 static auto UpdateApplicationRefreshRate() -> void
 {
@@ -60,7 +56,7 @@ static auto UpdateApplicationRefreshRate() -> void
         auto hmd_properties = VrTrackedDeviceProperties::FromDeviceIndex(vr::k_unTrackedDeviceIndex_Hmd);
         hmd_properties.CheckConnection();
         g_hmd_refresh_rate = hmd_properties.GetFloat(vr::Prop_DisplayFrequency_Float);
-        g_performanceOverlay->SetFrameTime(g_hmd_refresh_rate);
+        g_processInformation->SetFrameTime(g_hmd_refresh_rate);
     }
     catch (std::exception& ex) {
 #ifdef _WIN32
@@ -109,7 +105,7 @@ int main(
         return EXIT_FAILURE;
     }
 
-    g_performanceOverlay = new HandOverlay();
+    g_processInformation = new ControllerOverlay();
     g_ProcessList = new DashboardOverlay();
 
     UpdateApplicationRefreshRate();
@@ -164,9 +160,9 @@ int main(
             }
         }
         
-        g_performanceOverlay->Update();
-        if (g_performanceOverlay->Render())
-            g_performanceOverlay->Draw();
+        g_processInformation->Update();
+        if (g_processInformation->Render())
+            g_processInformation->Draw();
 
         g_ProcessList->Update();
         if (g_ProcessList->Render())
@@ -194,10 +190,10 @@ int main(
     VkResult vk_result = vkDeviceWaitIdle(g_vulkanRenderer->Device());
     VK_VALIDATE_RESULT(vk_result);
 
-    g_performanceOverlay->Destroy();
+    g_processInformation->Destroy();
     g_ProcessList->Destroy();
 
-    g_vulkanRenderer->DestroySurface(g_performanceOverlay->Surface());
+    g_vulkanRenderer->DestroySurface(g_processInformation->Surface());
     g_vulkanRenderer->DestroySurface(g_ProcessList->Surface());
     g_vulkanRenderer->Destroy();
 

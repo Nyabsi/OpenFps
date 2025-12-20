@@ -1,31 +1,30 @@
-﻿#include "HandOverlay.h"
+﻿#include "ControllerOverlay.h"
+
+#include <algorithm>
+#include <map>
+#include <thread>
+#include <math.h>
 
 #include <imgui.h>
 #include <backends/imgui_impl_vulkan.h>
-#include "backends/imgui_impl_openvr.h"
-
-#include <math.h>
+#include <extension/ImGui/backends/imgui_impl_openvr.h>
+#include <helper/ImHelper.h>
 #include <implot.h>
-#include <algorithm>
 
-#include "ImHelper.h"
-#include "VrUtils.h"
-#include <map>
-#include <thread>
+#include <extension/OpenVR/VrUtils.h>
 
 #define OVERLAY_KEY     "Nyabsi.OpenFps"
 #define OVERLAY_NAME    "OpenFps Hand"
 #define OVERLAY_WIDTH   420
 #define OVERLAY_HEIGHT  220
 
-static bool g_keyboard_global_show = false;
 static float g_overlay_width = -1.0f;
 static uint32_t g_last_index = vr::k_unTrackedDeviceIndexInvalid;
 static vr::ETrackedControllerRole g_overlay_handedness = vr::TrackedControllerRole_Invalid;
 static glm::vec3 g_position = {};
 static glm::quat g_rotation = {};
 
-HandOverlay::HandOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::VROverlayType_World, OVERLAY_WIDTH, OVERLAY_HEIGHT)
+ControllerOverlay::ControllerOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::VROverlayType_World, OVERLAY_WIDTH, OVERLAY_HEIGHT)
 {
     frame_time_ = {};
     refresh_rate_ = {};
@@ -106,7 +105,7 @@ HandOverlay::HandOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::VROverlayTyp
     this->UpdateDeviceTransform();
 }
 
-auto HandOverlay::Render() -> bool
+auto ControllerOverlay::Render() -> bool
 {
     if (!Overlay::Render())
         return false;
@@ -728,7 +727,7 @@ auto HandOverlay::Render() -> bool
     return true;
 }
 
-auto HandOverlay::Update() -> void
+auto ControllerOverlay::Update() -> void
 {
     Overlay::Update();
 
@@ -881,7 +880,7 @@ auto HandOverlay::Update() -> void
 		cpu_frame_time_avg_ = cpu_frame_time_ms_;
 		gpu_frame_time_avg_ = gpu_frame_time_ms_;
         task_monitor_.Update();
-        float effective_frametime_ms = max(
+        float effective_frametime_ms = std::max(
             frame_time_,
             timings.m_flCompositorRenderCpuMs +
             timings.m_flWaitForPresentCpuMs +
@@ -990,7 +989,7 @@ auto HandOverlay::Update() -> void
     }
 }
 
-auto HandOverlay::Destroy() -> void
+auto ControllerOverlay::Destroy() -> void
 {
     free(colour_mask_);
 
@@ -999,7 +998,7 @@ auto HandOverlay::Destroy() -> void
     ImPlot::DestroyContext();
 }
 
-auto HandOverlay::Reset() -> void
+auto ControllerOverlay::Reset() -> void
 {
     cpu_frame_times_.resize(static_cast<int>(refresh_rate_));
     gpu_frame_times_.resize(static_cast<int>(refresh_rate_));
@@ -1016,7 +1015,7 @@ auto HandOverlay::Reset() -> void
     total_frames_ = 0;
 }
 
-auto HandOverlay::SetFrameTime(float refresh_rate) -> void
+auto ControllerOverlay::SetFrameTime(float refresh_rate) -> void
 {
     frame_time_ = 1000.0f / refresh_rate;
     refresh_rate_ = refresh_rate;
@@ -1024,7 +1023,7 @@ auto HandOverlay::SetFrameTime(float refresh_rate) -> void
     this->Reset();
 }
 
-auto HandOverlay::UpdateDeviceTransform() -> void
+auto ControllerOverlay::UpdateDeviceTransform() -> void
 {
     glm::vec3 position = {};
     glm::quat rotation = {};

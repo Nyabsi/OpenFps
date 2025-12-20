@@ -9,6 +9,8 @@
 #include <dxgi1_6.h>
 #include <thread>
 
+#include <config.hpp>
+
 #pragma comment(lib, "pdh.lib")
 #pragma comment(lib, "dxgi.lib")
 
@@ -77,7 +79,7 @@ auto TaskMonitor::Initialize() -> void
 #ifdef _WIN32
         char error_message[512] = {};
         snprintf(error_message, 512, "Failed to initialize PDH counters.\nReason: %s\r\n", ex.what());
-        MessageBoxA(NULL, error_message, "OpenFps", MB_OK);
+        MessageBoxA(NULL, error_message, APP_NAME, MB_OK);
 #endif
         printf("%s\n\n", ex.what());
         std::exit(EXIT_FAILURE);
@@ -123,7 +125,7 @@ auto TaskMonitor::Update() -> void
 #ifdef _WIN32
         char error_message[512] = {};
         snprintf(error_message, 512, "Failed to collect PDH counters.\nReason: %s\r\n", ex.what());
-        MessageBoxA(NULL, error_message, "OpenFps", MB_OK);
+        MessageBoxA(NULL, error_message, APP_NAME, MB_OK);
 #endif
         printf("%s\n\n", ex.what());
         return;

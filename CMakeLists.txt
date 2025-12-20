@@ -41,13 +41,15 @@ message(STATUS "ENABLE_VULKAN_VALIDATION = ${ENABLE_VULKAN_VALIDATION}")
 
 add_executable(openfps
     "src/Main.cpp"
-    "src/VulkanRenderer.cpp"
-    "src/Overlay.cpp"
-    "src/HandOverlay.cpp"
-    "src/DashboardOverlay.cpp"
-    "src/TaskMonitor.cpp"
-    "src/Settings.cpp"
+    "src/core/Settings.cpp"
+    "src/core/TaskMonitor.cpp"
+    "src/overlay/Overlay.cpp"
+    "src/overlay/controller/ControllerOverlay.cpp"
+    "src/overlay/dashboard/DashboardOverlay.cpp"
+    "src/renderer/VulkanRenderer.cpp"
 )
+
+target_include_directories(openfps PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Windows executable icon
 if (WIN32)
