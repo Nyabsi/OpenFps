@@ -33,7 +33,7 @@ struct ImGui_ImplOpenVR_InitInfo
 // Follow "Getting Started" link and check examples/ folder to learn about using backends!
 IMGUI_IMPL_API bool     ImGui_ImplOpenVR_Init(ImGui_ImplOpenVR_InitInfo* initInfo);
 IMGUI_IMPL_API bool		ImGui_ImplOpenVR_ProcessOverlayEvent(const vr::VREvent_t& event);
-IMGUI_IMPL_API void		ImGui_ImplOpenVR_ProcessLaserInput(vr::ETrackedControllerRole role);
+IMGUI_IMPL_API bool		ImGui_ImplOpenVR_ProcessLaserInput(vr::ETrackedControllerRole role);
 IMGUI_IMPL_API void     ImGui_ImplOpenVR_Shutdown();
 IMGUI_IMPL_API void     ImGui_ImplOpenVR_NewFrame();
 

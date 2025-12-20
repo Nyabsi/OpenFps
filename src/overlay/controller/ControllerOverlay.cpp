@@ -971,20 +971,19 @@ auto ControllerOverlay::Update() -> void
         }
     }
 
-    const auto handedness = static_cast<vr::ETrackedControllerRole>(this->Handedness());
     const auto scale = this->OverlayScale();
-
-    // Device relative offset
-    const auto transform = this->Transform();
-    glm::vec3 position = transform.position;
-    glm::quat rotation = transform.rotation;
-
     if (g_overlay_width != scale) {
         this->SetWidth(scale);
         g_overlay_width = scale;
     }
 
-    auto hand_index = vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(handedness);
+
+    const auto transform = this->Transform();
+    const auto handedness = static_cast<vr::ETrackedControllerRole>(this->Handedness());
+    const auto hand_index = vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(handedness);
+
+    const glm::vec3 position = transform.position;
+    const glm::quat rotation = transform.rotation;
     if (g_overlay_handedness != handedness || (g_position != position && g_rotation != rotation) || g_last_index == vr::k_unTrackedDeviceIndexInvalid && hand_index != vr::k_unTrackedDeviceIndexInvalid) {
         this->SetTransformDeviceRelative(handedness, position, rotation);
         g_overlay_handedness = handedness;
@@ -993,13 +992,6 @@ auto ControllerOverlay::Update() -> void
 
         if (g_last_index == vr::k_unTrackedDeviceIndexInvalid)
             g_last_index = hand_index;
-    }
-
-    if (!vr::VROverlay()->IsDashboardVisible()) {
-        if (handedness == vr::TrackedControllerRole_LeftHand)
-            ImGui_ImplOpenVR_ProcessLaserInput(vr::TrackedControllerRole_RightHand);
-        else if (handedness == vr::TrackedControllerRole_RightHand)
-            ImGui_ImplOpenVR_ProcessLaserInput(vr::TrackedControllerRole_LeftHand);
     }
 }
 

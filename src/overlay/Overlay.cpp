@@ -260,6 +260,12 @@ auto Overlay::Update() -> void
 
         ImGui_ImplOpenVR_ProcessOverlayEvent(vr_event);
     }
+
+    if (!vr::VROverlay()->IsDashboardVisible()) {
+        if (ImGui_ImplOpenVR_ProcessLaserInput(vr::TrackedControllerRole_RightHand))
+            return;
+        ImGui_ImplOpenVR_ProcessLaserInput(vr::TrackedControllerRole_LeftHand);
+    }
 }
 
 auto Overlay::Draw() -> void

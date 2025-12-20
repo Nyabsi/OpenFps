@@ -37,6 +37,7 @@ struct ImGui_ImplOpenVR_Data {
 #endif
     uint64_t time;
     vr::HmdVector2_t mouse_scale;
+    bool laser_hit_dirty;
     ImGui_ImplOpenVR_Data() { memset((void*)this, 0, sizeof(*this)); }
 };
 
@@ -63,6 +64,7 @@ bool ImGui_ImplOpenVR_Init(ImGui_ImplOpenVR_InitInfo* initInfo)
     bd->height = initInfo->height;
 
     bd->keyboard_active = false;
+    bd->laser_hit_dirty = false;
 
 #ifdef _WIN32
     uint64_t perf_frequency = {};
@@ -232,23 +234,26 @@ bool ImGui_ImplOpenVR_ProcessOverlayEvent(const vr::VREvent_t& event)
     return true;
 }
 
-void ImGui_ImplOpenVR_ProcessLaserInput(vr::ETrackedControllerRole role)
+bool ImGui_ImplOpenVR_ProcessLaserInput(vr::ETrackedControllerRole role)
 {
     ImGui_ImplOpenVR_Data* bd = ImGui_ImplOpenVR_GetBackendData();
     IM_ASSERT(bd != nullptr && "Context or backend not initialized!");
+
+    // Reset before ImGui_ImplOpenVR_NewFrame is called, because that means we got new Input before we should actually clear the mouse position.
+    bd->laser_hit_dirty = false;
 
     ImGuiIO& io = ImGui::GetIO();
 
     vr::TrackedDeviceIndex_t controller = vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(role);
     if (controller == vr::k_unTrackedDeviceIndexInvalid)
-        return;
+        return false;
 
     vr::TrackedDevicePose_t poses[vr::k_unMaxTrackedDeviceCount] = {};
     vr::VRSystem()->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseSeated, 0.0f, poses, vr::k_unMaxTrackedDeviceCount);
 
     const vr::TrackedDevicePose_t& pose = poses[controller];
     if (!pose.bPoseIsValid)
-        return;
+        return false;
 
     vr::VRControllerState_t controllerState = {};
     vr::VRSystem()->GetControllerState(controller, &controllerState, sizeof(controllerState));
@@ -306,17 +311,18 @@ void ImGui_ImplOpenVR_ProcessLaserInput(vr::ETrackedControllerRole role)
 
     vr::VROverlayIntersectionResults_t results = {};
 
-    if (!vr::VROverlay()->ComputeOverlayIntersection(bd->handle, &params, &results))
-    {
-        io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
-        return;
+    if (!vr::VROverlay()->ComputeOverlayIntersection(bd->handle, &params, &results)) {
+        bd->laser_hit_dirty = true;
+        return false;
     }
 
+    // convert UV -> ImGui screen space
     const float x = results.vUVs.v[0] * io.DisplaySize.x;
     const float y = (1.0f - results.vUVs.v[1]) * io.DisplaySize.y;
 
     io.AddMousePosEvent(x, y);
     io.AddMouseButtonEvent(ImGuiMouseButton_Left, controllerState.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_SteamVR_Trigger));
+    return true;
 }
 
 void ImGui_ImplOpenVR_Shutdown()
@@ -380,6 +386,11 @@ void ImGui_ImplOpenVR_NewFrame()
         bounds.vMin = 0.0f;
         bounds.vMax = 1.0f;
         vr::VROverlay()->SetOverlayTextureBounds(bd->handle, &bounds);
+    }
+
+    if (bd->laser_hit_dirty) {
+        io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+        bd->laser_hit_dirty = false;
     }
 
     io.DeltaTime = ImGui_ImplOpenVR_GetDeltaTime();
