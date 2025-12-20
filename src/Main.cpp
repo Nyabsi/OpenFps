@@ -159,7 +159,7 @@ int main(
                 {
                     vr::VRSystem()->AcknowledgeQuit_Exiting();
                     g_ticking = false;
-                    return false;
+                    break;
                 }
             }
         }
