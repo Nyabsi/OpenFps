@@ -196,7 +196,7 @@ Overlay::Overlay(const std::string& appKey, const std::string& name, vr::VROverl
         .RenderPass = VK_NULL_HANDLE,
         .MinImageCount = 16,
         .ImageCount = 16,
-        .MSAASamples = VK_SAMPLE_COUNT_1_BIT,
+        .MSAASamples = VK_SAMPLE_COUNT_4_BIT, // 4x MSAA sampling.
         .PipelineCache = g_vulkanRenderer->PipelineCache(),
         .Subpass = 0,
         .UseDynamicRendering = true,
