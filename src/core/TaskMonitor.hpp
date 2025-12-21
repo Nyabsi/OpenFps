@@ -133,4 +133,5 @@ private:
     SYSTEM_INFO system_info_;
     MEMORYSTATUSEX system_memory_;
     IDXGIFactory6* dxgi_factory_;
+    bool pdh_available_;
 };

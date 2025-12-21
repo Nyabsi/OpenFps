@@ -32,6 +32,7 @@ TaskMonitor::TaskMonitor()
     system_info_ = { };
     system_memory_ = { };
     dxgi_factory_ = nullptr;
+    pdh_available_ = true;
 }
 
 auto TaskMonitor::Initialize() -> void
@@ -78,11 +79,11 @@ auto TaskMonitor::Initialize() -> void
     catch (std::exception& ex) {
 #ifdef _WIN32
         char error_message[512] = {};
-        snprintf(error_message, 512, "Failed to initialize PDH counters.\nReason: %s\r\n", ex.what());
+        snprintf(error_message, 512, "Failed to initialize PDH, this means you will not be able to get performnce statistics, other systems continue to operate.\n\n%s\r\n", ex.what());
         MessageBoxA(NULL, error_message, APP_NAME, MB_OK);
 #endif
         printf("%s\n\n", ex.what());
-        std::exit(EXIT_FAILURE);
+        pdh_available_ = false;
     }
 
     GetSystemInfo(&system_info_);
@@ -111,6 +112,9 @@ auto TaskMonitor::Destroy() -> void
 
 auto TaskMonitor::Update() -> void
 {
+    if (!pdh_available_)
+        return;
+
     process_list_.clear();
     process_map_.clear();
 
