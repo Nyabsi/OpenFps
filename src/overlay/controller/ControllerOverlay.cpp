@@ -536,9 +536,9 @@ auto ControllerOverlay::Render() -> bool
 
 
                         ImGui::TableSetColumnIndex(2);
-                        if (device.battery_percentage <= 0.2f)
+                        if (device.battery_percentage <= 0.2f && device.battery_percentage > 0.10f)
                             ImGui::TextColored(Color_Yellow, "%d%%", (int)(device.battery_percentage * 100));
-                        else if (device.battery_percentage <= 0.1f)
+                        else if (device.battery_percentage <= 0.10f)
                             ImGui::TextColored(Color_Red, "%d%%", (int)(device.battery_percentage * 100));
                         else
                             ImGui::Text("%d%%", (int)(device.battery_percentage * 100));
