@@ -227,17 +227,22 @@ auto VulkanRenderer::Initialize()  -> void
     vkGetDeviceQueue(vulkan_device_, vulkan_queue_family_, 0, &vulkan_queue_);
 
     VkDescriptorPoolSize pool_sizes[] = {
-        {
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            16
-        },
+        { VK_DESCRIPTOR_TYPE_SAMPLER,                128 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 512 },
+        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          128 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          128 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,   64  },
+        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   64  },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         256 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         256 },
     };
-
-    VkDescriptorPoolCreateInfo pool_info = 
-    {
+    \
+    VkDescriptorPoolCreateInfo pool_info = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-        .maxSets = 16,
+        .maxSets = 2048,
+        .poolSizeCount = std::size(pool_sizes),
+        .pPoolSizes = pool_sizes,
     };
 
     for (VkDescriptorPoolSize& pool_size : pool_sizes)
@@ -578,7 +583,7 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, Overlay* overlay) cons
         .m_nWidth = overlay->Surface()->width,
         .m_nHeight = overlay->Surface()->height,
         .m_nFormat = (uint32_t)overlay->Surface()->texture_format.format,
-        .m_nSampleCount = VK_SAMPLE_COUNT_1_BIT,
+        .m_nSampleCount = VK_SAMPLE_COUNT_4_BIT,
     };
 
     vr::Texture_t vrTexture =
