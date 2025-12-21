@@ -67,9 +67,6 @@ auto DashboardOverlay::Render()-> bool
     if (!Overlay::Render())
         return false;
 
-    if (!this->IsVisible())
-        return false;
-
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplOpenVR_NewFrame();
     ImGui::NewFrame();
