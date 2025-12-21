@@ -837,7 +837,7 @@ auto ControllerOverlay::Update() -> void
         static int consecutive_bottleneck_frames = 0;
         static int consecutive_clear_frames = 0;
 
-        constexpr int kTriggerThreshold = 3;
+        constexpr int kTriggerThreshold = 5;
         constexpr int kClearThreshold = 10;
 
         BottleneckSource_Flags detected_flags = BottleneckSource_Flags_None;
