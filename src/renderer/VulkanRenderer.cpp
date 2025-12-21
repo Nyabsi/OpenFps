@@ -583,7 +583,7 @@ auto VulkanRenderer::RenderSurface(ImDrawData* draw_data, Overlay* overlay) cons
         .m_nWidth = overlay->Surface()->width,
         .m_nHeight = overlay->Surface()->height,
         .m_nFormat = (uint32_t)overlay->Surface()->texture_format.format,
-        .m_nSampleCount = VK_SAMPLE_COUNT_4_BIT,
+        .m_nSampleCount = VK_SAMPLE_COUNT_1_BIT,
     };
 
     vr::Texture_t vrTexture =
