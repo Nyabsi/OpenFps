@@ -178,7 +178,7 @@ auto TaskMonitor::Update() -> void
     }
 }
 
-auto TaskMonitor::GetProcessInfoByPid(uint64_t pid) -> ProcessInfo
+auto TaskMonitor::GetProcessInfoByPid(uint32_t pid) -> ProcessInfo
 {
     return process_list_[pid];
 }
@@ -200,8 +200,9 @@ auto TaskMonitor::mapProcessesToPid(PDH_HCOUNTER counter) -> void
 
     for (DWORD i = 0; i < itemCount; ++i) {
         if (items != nullptr && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
-            process_list_[items[i].FmtValue.largeValue].process_name = items[i].szName;
-            process_map_[items[i].szName] = items[i].FmtValue.largeValue;
+            uint32_t pid = static_cast<uint32_t>(items[i].FmtValue.largeValue);
+            process_list_[pid].process_name = items[i].szName;
+            process_map_[items[i].szName] = pid;
         }
     }
 }
@@ -222,8 +223,8 @@ auto TaskMonitor::calculateGpuMetricFromCounter(PDH_HCOUNTER counter, GpuMetric_
         uint32_t engine_index = 0;
         int gpu_index = 0;
 
-        uint64_t luid_low = 0;
-        uint64_t luid_high = 0;
+        uint32_t luid_low = 0;
+        uint32_t luid_high = 0;
         std::string engine_type;
 
         for (size_t i = 0; i < tokens.size(); ++i) {
@@ -231,8 +232,8 @@ auto TaskMonitor::calculateGpuMetricFromCounter(PDH_HCOUNTER counter, GpuMetric_
                 pid = std::stoul(tokens[++i]);
             }
             else if (tokens[i] == "luid") {
-                luid_low = std::stoul(tokens[++i], nullptr, 16);
-                luid_high = std::stoull(tokens[++i], nullptr, 16);
+                luid_low = static_cast<uint32_t>(std::stoul(tokens[++i], nullptr, 16));
+                luid_high = static_cast<uint32_t>(std::stoull(tokens[++i], nullptr, 16));
             }
             else if (tokens[i] == "phys") {
                 gpu_index = std::stoi(tokens[++i]);
@@ -261,15 +262,15 @@ auto TaskMonitor::calculateGpuMetricFromCounter(PDH_HCOUNTER counter, GpuMetric_
         switch (type)
         {
         case GpuMetric_Dedicated_Vram:
-            gpu.memory.dedicated_vram_usage = value;
+            gpu.memory.dedicated_vram_usage = static_cast<size_t>(value);
             break;
 
         case GpuMetric_Shared_Vram:
-            gpu.memory.shared_vram_usage = value;
+            gpu.memory.shared_vram_usage = static_cast<size_t>(value);
             break;
 
         case GpuMetric_Engine_Utilization:
-            eng.utilization_percentage = value;
+            eng.utilization_percentage = static_cast<float>(value);
             break;
         }
     };
@@ -309,7 +310,7 @@ auto TaskMonitor::calculateCpuMetricFromCounter(PDH_HCOUNTER counter, CpuMetric_
 
     for (DWORD i = 0; i < itemCount; ++i) {
         if (items != nullptr && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
-            uint64_t pid = process_map_[items[i].szName];
+            uint32_t pid = process_map_[items[i].szName];
             if (strcmp(items[i].szName, "Idle") != 0 && strcmp(items[i].szName, "_Total") != 0) {
                 switch (type)
                 {
@@ -345,9 +346,9 @@ auto TaskMonitor::calculateMemoryMetricFromCounter(PDH_HCOUNTER counter) -> void
 
     for (DWORD i = 0; i < itemCount; ++i) {
         if (items != nullptr && items[i].FmtValue.CStatus == ERROR_SUCCESS) {
-            uint64_t pid = process_map_[items[i].szName];
+            uint32_t pid = process_map_[items[i].szName];
             if (strcmp(items[i].szName, "Idle") != 0 && strcmp(items[i].szName, "_Total") != 0) {
-                process_list_[pid].memory_usage = items[i].FmtValue.doubleValue;
+                process_list_[pid].memory_usage = static_cast<size_t>(items[i].FmtValue.doubleValue);
             }
         }
     }

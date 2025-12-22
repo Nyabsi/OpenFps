@@ -107,20 +107,20 @@ class TaskMonitor {
 public:
     explicit TaskMonitor();
 
-    [[nodiscard]] auto Processes() const -> std::unordered_map<uint64_t, ProcessInfo> { return process_list_; }
+    [[nodiscard]] auto Processes() const -> std::unordered_map<uint32_t, ProcessInfo> { return process_list_; }
 
     auto Initialize() -> void;
     auto Destroy() -> void;
     auto Update() -> void;
-	auto GetProcessInfoByPid(uint64_t pid) -> ProcessInfo;
+	auto GetProcessInfoByPid(uint32_t pid) -> ProcessInfo;
 private:
     auto mapProcessesToPid(PDH_HCOUNTER counter) -> void;
     auto calculateGpuMetricFromCounter(PDH_HCOUNTER counter, GpuMetric_Type type) -> void;
     auto calculateCpuMetricFromCounter(PDH_HCOUNTER counter, CpuMetric_Type type) -> void;
     auto calculateMemoryMetricFromCounter(PDH_HCOUNTER counter) -> void;
 
-    std::unordered_map<uint64_t, ProcessInfo> process_list_;
-    std::unordered_map<std::string, uint64_t> process_map_;
+    std::unordered_map<uint32_t, ProcessInfo> process_list_;
+    std::unordered_map<std::string, uint32_t> process_map_;
     PDH_HQUERY pdh_query_;
     PDH_HCOUNTER pdh_processes_id_counter_;
 	PDH_HCOUNTER pdh_dedicated_vram_counter_;

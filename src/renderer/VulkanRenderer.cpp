@@ -16,7 +16,7 @@ VulkanRenderer::VulkanRenderer()
 {
     vulkan_instance_ = VK_NULL_HANDLE;
     vulkan_physical_device_ = VK_NULL_HANDLE;
-    vulkan_queue_family_ = -1;
+    vulkan_queue_family_ = 0;
     vulkan_allocator_ = nullptr;
     vulkan_device_ = VK_NULL_HANDLE;
     vulkan_queue_ = VK_NULL_HANDLE;
@@ -158,9 +158,9 @@ auto VulkanRenderer::Initialize()  -> void
     queues_properties.clear();
     assert(vulkan_queue_family_ != (uint32_t)-1);
 
-    auto get_device_extensions = [&](const std::vector<std::string>& extensions) -> std::vector<const char*> {
+    auto get_device_extensions = [](const std::vector<std::string>& extensions) -> std::vector<const char*> {
         std::vector<const char*> result = {};
-        for (auto& extension : vulkan_device_extensions_)
+        for (auto& extension : extensions)
             result.push_back(extension.c_str());
         return result;
     };

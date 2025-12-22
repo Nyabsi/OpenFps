@@ -43,7 +43,7 @@ static auto IsVulkanInstanceExtensionAvailable(std::string extension) -> bool
     return IsExtensionAvailable(extension_properties, extension);
 }
 
-static auto IsVulkanDeviceExtensionAvailable(const VkPhysicalDevice& physical_device, std::string extension) -> bool 
+inline auto IsVulkanDeviceExtensionAvailable(const VkPhysicalDevice& physical_device, std::string extension) -> bool
 {
     auto IsExtensionAvailable = [](const std::vector<VkExtensionProperties>& properties, std::string extension) {
         for (const VkExtensionProperties& p : properties)
@@ -68,7 +68,7 @@ static auto IsVulkanDeviceExtensionAvailable(const VkPhysicalDevice& physical_de
     return IsExtensionAvailable(extension_properties, extension);
 }
 
-static auto GetVulkanInstanceExtensionsRequiredByOpenVR() -> std::vector<std::string>
+inline auto GetVulkanInstanceExtensionsRequiredByOpenVR() -> std::vector<std::string>
 {
     std::vector<std::string> result{};
 
@@ -106,7 +106,7 @@ static auto GetVulkanInstanceExtensionsRequiredByOpenVR() -> std::vector<std::st
     return result;
 }
 
-static auto GetVulkanDeviceExtensionsRequiredByOpenVR(const VkPhysicalDevice& device) -> std::vector<std::string> 
+inline auto GetVulkanDeviceExtensionsRequiredByOpenVR(const VkPhysicalDevice& device) -> std::vector<std::string> 
 {
     std::vector<std::string> result{};
 

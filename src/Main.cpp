@@ -76,7 +76,7 @@ int main(
 #ifdef _WIN32
     ShowWindow(GetConsoleWindow(), SW_HIDE);
 #endif
-    std::srand(std::time(nullptr));
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
 
     try {
         OpenVRInit(vr::VRApplication_Background);
@@ -135,7 +135,7 @@ int main(
     vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainG_Float, 1.0f);
     vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainB_Float, 1.0f);
 
-    for (uint64_t i = 0; i < vr::k_unMaxTrackedDeviceCount; i++) {
+    for (uint32_t i = 0; i < vr::k_unMaxTrackedDeviceCount; i++) {
         if (i == vr::k_unTrackedDeviceIndex_Hmd)
             continue;
         g_processInformation->AddMonitoredDeviceById(i);

@@ -26,14 +26,14 @@ auto Settings::Load() -> void
     if (file.good()) {
         nlohmann::json j;
         file >> j;
-        overlay_scale_ = j.value("overlay_scale", 0.20f);
-        handedness_ = j.value("controller_handedness", 1);
-        position_ = j.value("controller_position", 0);
-		ss_scaling_enabled_ = j.value("ss_scaling_enabled", false);
-		display_mode_ = j.value("display_mode", 2);
-		post_processing_enabled_ = j.value("post_processing_enabled", false);
-		color_temp_ = j.value("color_temperature", 8500.0f);
-		color_brightness_ = j.value("color_brightness", 100.0f);
+        overlay_scale_ = static_cast<float>(j.value("overlay_scale", 0.20f));
+        handedness_ = static_cast<int>(j.value("controller_handedness", 1));
+        position_ = static_cast<int>(j.value("controller_position", 0));
+		ss_scaling_enabled_ = static_cast<bool>(j.value("ss_scaling_enabled", false));
+		display_mode_ = static_cast<uint8_t>(j.value("display_mode", 2));
+		post_processing_enabled_ = static_cast<bool>(j.value("post_processing_enabled", false));
+		color_temp_ = static_cast<float>(j.value("color_temperature", 8500.0f));
+		color_brightness_ = static_cast<float>(j.value("color_brightness", 100.0f));
     }
 
 	file.close();

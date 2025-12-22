@@ -18,7 +18,7 @@
 
 struct CachedProcessRow
 {
-    uint64_t    pid;
+    uint32_t    pid;
     ProcessInfo info;
     GpuInfo     gpu;
 };

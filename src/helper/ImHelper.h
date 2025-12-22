@@ -16,7 +16,7 @@ constexpr auto Color_Magenta = IMGUI_NORMALIZED_RGBA(255, 0, 255, 255);     /* 2
 constexpr auto Color_Purple = IMGUI_NORMALIZED_RGBA(128, 0, 255, 255);      /* 128, 0, 255        */
 
 namespace ImHelper {
-    static void DrawCursor()
+    inline void DrawCursor()
     {
         ImGuiIO& io = ImGui::GetIO();
 

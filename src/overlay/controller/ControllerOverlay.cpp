@@ -44,7 +44,7 @@ ControllerOverlay::ControllerOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::
     cpu_frame_time_ms_ = {};
     gpu_frame_time_ms_ = {};
 	cpu_frame_time_sample_ = {};
-	gpu_frame_time_sample_ = {};
+	gpu_frame_time_avg_ = {};
     current_fps_ = {};
     frame_index_ = {};
     bottleneck_flags_ = {};
@@ -90,10 +90,9 @@ ControllerOverlay::ControllerOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::
     color_brightness_ = settings_.ColorBrightness();
 
     colour_mask_ = (float*)malloc(sizeof(float) * 3);
-#pragma warning( push )
-#pragma warning( disable : 6387 )
-    memset(colour_mask_, 0x0, sizeof(float) * 3);
-#pragma warning( pop )
+    for (int i = 0; i < 3; i++) {
+        colour_mask_[i] = 0.0f;
+    }
 
     ss_scale_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_SupersampleScale_Float) * 100;
     color_channel_red_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainR_Float);
@@ -138,7 +137,7 @@ auto ControllerOverlay::Render() -> bool
 		ProcessInfo process_info = {};
 
         ImGui::Indent(10.0f);
-        auto pid = GetCurrentGamePid();
+        uint32_t pid = GetCurrentGamePid();
         if (pid > 0) {
             // TODO: check if last_pid actually exists before doing reset, if game utilizes SteamVR Compositor GetCurrentGamePid might return wrong pid temporarily causing stat reset.
             if (last_pid != pid) {
@@ -243,7 +242,7 @@ auto ControllerOverlay::Render() -> bool
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("GPU Frametime");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.1f ms", gpu_frame_time_sample_);
+                ImGui::Text("%.1f ms", gpu_frame_time_avg_);
                 ImGui::Unindent(10.0f);
                 ImGui::EndTable();
             }
@@ -635,14 +634,14 @@ auto ControllerOverlay::Render() -> bool
                             color_channel_red_ = 1.0f; // 255
                         }
                         else {
-                            color_channel_red_ = (std::clamp<float>(329.698727446 * std::pow<float>((temperature - 60), -0.1332047592), 0, 255) / 255.0f);
+                            color_channel_red_ = (std::clamp<float>(329.698727446f * static_cast<float>(std::pow((temperature - 60.0f), -0.1332047592f)), 0, 255) / 255.0f);
                         }
 
                         if (temperature <= 66.0f) {
-                            color_channel_green_ = (std::clamp<float>(99.4708025861 * std::logf(temperature) - 161.1195681661, 0, 255) / 255.0f);
+                            color_channel_green_ = (std::clamp<float>(99.4708025861f * std::logf(temperature) - 161.1195681661f, 0, 255) / 255.0f);
                         }
                         else {
-                            color_channel_green_ = (std::clamp<float>(288.1221695283 * std::pow<float>((temperature - 60), -0.0755148492), 0, 255) / 255.0f);
+                            color_channel_green_ = (std::clamp<float>(288.1221695283f * static_cast<float>(std::pow((temperature - 60.0f), -0.0755148492f)), 0, 255) / 255.0f);
                         }
 
                         if (temperature >= 66.0f) {
@@ -653,7 +652,7 @@ auto ControllerOverlay::Render() -> bool
                                 color_channel_blue_ = 0.01f;
                             }
                             else {
-                                color_channel_blue_ = (std::clamp<float>(138.5177312231 * std::logf(temperature - 10) - 305.0447927307, 0, 255) / 255.0f);
+                                color_channel_blue_ = (std::clamp<float>(138.5177312231f * std::logf(temperature - 10.0f) - 305.0447927307f, 0, 255) / 255.0f);
                             }
                         }
 
@@ -881,7 +880,7 @@ auto ControllerOverlay::Update() -> void
     static double last_time = 0.0;
     if (ImGui::GetTime() - last_time >= 0.5f) {
 		cpu_frame_time_sample_ = cpu_frame_time_ms_;
-		gpu_frame_time_sample_ = gpu_frame_time_ms_;
+		gpu_frame_time_avg_ = gpu_frame_time_ms_;
         task_monitor_.Update();
         float effective_frametime_ms = std::max(
             frame_time_,
@@ -973,22 +972,22 @@ auto ControllerOverlay::UpdateBatteryPercentageForDeviceById(uint32_t device_id)
     auto it = std::find_if(tracked_devices_.begin(), tracked_devices_.end(), [device_id](const TrackedDevice& a) { return a.device_id == device_id; });
     if (it != tracked_devices_.end()) {
         auto c_properties = VrTrackedDeviceProperties::FromDeviceIndex(device_id);
-        int32_t type = c_properties.GetInt32(vr::Prop_DeviceClass_Int32);
+        int32_t device_type = c_properties.GetInt32(vr::Prop_DeviceClass_Int32);
 
         std::string name = { "-" };
 
-        if (type == vr::TrackedDeviceClass_HMD) {
+        if (device_type == vr::TrackedDeviceClass_HMD) {
             name = "Headset";
         }
 
-        else if (type == vr::TrackedDeviceClass_Controller) {
-            int32_t type = c_properties.GetInt32(vr::Prop_ControllerRoleHint_Int32);
-            name = type == vr::TrackedControllerRole_LeftHand ? "Left Controller" : "Right Controller";
+        else if (device_type == vr::TrackedDeviceClass_Controller) {
+            int32_t controller_hint = c_properties.GetInt32(vr::Prop_ControllerRoleHint_Int32);
+            name = controller_hint == vr::TrackedControllerRole_LeftHand ? "Left Controller" : "Right Controller";
         }
 
-        else if (type == vr::TrackedDeviceClass_GenericTracker) {
-            std::string type = c_properties.GetString(vr::Prop_ControllerType_String);
-            name = TrackerPropStringToString(type);
+        else if (device_type == vr::TrackedDeviceClass_GenericTracker) {
+            std::string controller_type = c_properties.GetString(vr::Prop_ControllerType_String);
+            name = TrackerPropStringToString(controller_type);
         }
 
         if (c_properties.GetBool(vr::Prop_DeviceProvidesBatteryStatus_Bool)) {
@@ -1007,22 +1006,22 @@ auto ControllerOverlay::AddMonitoredDeviceById(uint32_t device_id) -> void
     try {
         auto c_properties = VrTrackedDeviceProperties::FromDeviceIndex(device_id);
         if (it == tracked_devices_.end() && c_properties.GetBool(vr::Prop_DeviceProvidesBatteryStatus_Bool)) {
-            int32_t type = c_properties.GetInt32(vr::Prop_DeviceClass_Int32);
+            int32_t device_type = c_properties.GetInt32(vr::Prop_DeviceClass_Int32);
 
             std::string name = { "-" };
 
-            if (type == vr::TrackedDeviceClass_HMD) {
+            if (device_type == vr::TrackedDeviceClass_HMD) {
                 name = "Headset";
             }
 
-            else if (type == vr::TrackedDeviceClass_Controller) {
-                int32_t type = c_properties.GetInt32(vr::Prop_ControllerRoleHint_Int32);
-                name = type == vr::TrackedControllerRole_LeftHand ? "Left Controller" : "Right Controller";
+            else if (device_type == vr::TrackedDeviceClass_Controller) {
+                int32_t controller_hint = c_properties.GetInt32(vr::Prop_ControllerRoleHint_Int32);
+                name = controller_hint == vr::TrackedControllerRole_LeftHand ? "Left Controller" : "Right Controller";
             }
 
-            else if (type == vr::TrackedDeviceClass_GenericTracker) {
-                std::string type = c_properties.GetString(vr::Prop_ControllerType_String);
-                name = TrackerPropStringToString(type);
+            else if (device_type == vr::TrackedDeviceClass_GenericTracker) {
+                std::string controller_type = c_properties.GetString(vr::Prop_ControllerType_String);
+                name = TrackerPropStringToString(controller_type);
             }
 
             TrackedDevice device =

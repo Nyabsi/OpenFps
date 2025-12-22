@@ -8,7 +8,7 @@
 #include <openvr.h>
 #include <SDL3/SDL.h>
 
-static auto OpenVRInit(vr::EVRApplicationType type) -> void
+inline auto OpenVRInit(vr::EVRApplicationType type) -> void
 {
     vr::EVRInitError result = {};
     VR_Init(&result, type);
@@ -22,16 +22,16 @@ static auto OpenVRInit(vr::EVRApplicationType type) -> void
         throw std::runtime_error(std::format("SteamVR was running but headset was not found."));
 }
 
-static auto OpenVRManifestInstalled(const char* appKey) -> bool
+inline auto OpenVRManifestInstalled(const char* appKey) -> bool
 {
     return vr::VRApplications()->IsApplicationInstalled(appKey);
 }
 
-static auto GetCurrentGamePid() -> uint64_t {
+inline auto GetCurrentGamePid() -> uint32_t {
 	return vr::VRApplications()->GetCurrentSceneProcessId();
 }
 
-static auto TrackerPropStringToString(const std::string& name_unformatted)
+inline auto TrackerPropStringToString(const std::string& name_unformatted)
 {
     if (name_unformatted.contains("vive_tracker_left_foot"))
         return "Left Foot";
@@ -62,7 +62,7 @@ static auto TrackerPropStringToString(const std::string& name_unformatted)
     return "Generic Tracker";
 }
 
-static auto OpenVRManifestInstall() -> void 
+inline auto OpenVRManifestInstall() -> void
 {
     std::string manifestPath = {};
     manifestPath += SDL_GetCurrentDirectory();

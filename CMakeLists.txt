@@ -66,6 +66,11 @@ target_link_libraries(openfps
         nlohmann_json::nlohmann_json
 )
 
+target_compile_options(openfps PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic -Werror>
+)
+
 if (ENABLE_VULKAN_VALIDATION)
     add_definitions(-DENABLE_VULKAN_VALIDATION)
 endif()
