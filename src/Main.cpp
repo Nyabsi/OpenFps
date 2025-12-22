@@ -149,6 +149,19 @@ int main(
                     if (vr_event.data.property.prop == vr::Prop_DisplayFrequency_Float) {
                         UpdateApplicationRefreshRate();
                     }
+                    if (vr_event.data.property.prop == vr::Prop_DeviceBatteryPercentage_Float) {
+                        g_processInformation->UpdateBatteryPercentageForDeviceById(vr_event.trackedDeviceIndex);
+                    }
+                    break;
+                }
+                case vr::VREvent_TrackedDeviceActivated:
+                {
+                    g_processInformation->AddMonitoredDeviceById(vr_event.trackedDeviceIndex);
+                    break;
+                }
+                case vr::VREvent_TrackedDeviceDeactivated:
+                {
+                    g_processInformation->RemoveMonitoredDeviceById(vr_event.trackedDeviceIndex);
                     break;
                 }
                 case vr::VREvent_Quit:

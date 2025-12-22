@@ -65,6 +65,9 @@ public:
     auto Reset() -> void;
 
     auto SetFrameTime(float refresh_rate) -> void;
+    auto UpdateBatteryPercentageForDeviceById(uint32_t device_id) -> void;
+    auto AddMonitoredDeviceById(uint32_t device_id) -> void;
+    auto RemoveMonitoredDeviceById(uint32_t device_id) -> void;
 private:
     auto UpdateDeviceTransform() -> void;
 

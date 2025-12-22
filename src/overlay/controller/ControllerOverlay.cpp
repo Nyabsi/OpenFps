@@ -898,61 +898,6 @@ auto ControllerOverlay::Update() -> void
         last_time = ImGui::GetTime();
     }
 
-    for (uint64_t i = 0; i < vr::k_unMaxTrackedDeviceCount; i++) {
-        try {
-            auto c_properties = VrTrackedDeviceProperties::FromDeviceIndex(i);
-            c_properties.CheckConnection();
-            int32_t type = c_properties.GetInt32(vr::Prop_DeviceClass_Int32);
-
-            std::string name = { "-" };
-
-            if (type == vr::TrackedDeviceClass_HMD) {
-                name = "Headset";
-            }
-
-            else if (type == vr::TrackedDeviceClass_Controller) {
-                int32_t type = c_properties.GetInt32(vr::Prop_ControllerRoleHint_Int32);
-                name = type == vr::TrackedControllerRole_LeftHand ? "Left Controller" : "Right Controller";
-            }
-
-            else if (type == vr::TrackedDeviceClass_GenericTracker) {
-                std::string type = c_properties.GetString(vr::Prop_ControllerType_String);
-                name = TrackerPropStringToString(type);
-            }
-
-            if (name.length() > 0) {
-                auto it = std::find_if(tracked_devices_.begin(), tracked_devices_.end(), [i](const TrackedDevice& a) { return a.device_id == i; });
-
-                if (it == tracked_devices_.end() && c_properties.GetBool(vr::Prop_DeviceProvidesBatteryStatus_Bool)) {
-                    TrackedDevice device =
-                    {
-                        .device_id = i,
-                        .device_label = name,
-                        .battery_percentage = -1.0f
-                    };
-
-                    tracked_devices_.push_back(device);
-                }
-                else {
-                    if (it != tracked_devices_.end()) {
-                        if (c_properties.GetBool(vr::Prop_DeviceProvidesBatteryStatus_Bool)) {
-                            it->battery_percentage = c_properties.GetFloat(vr::Prop_DeviceBatteryPercentage_Float);
-                        }
-                        else {
-                            tracked_devices_.erase(it);
-                        }
-                    }
-                }
-            }
-        }
-        catch (std::exception& ex) {
-            auto it = std::find_if(tracked_devices_.begin(), tracked_devices_.end(), [i](const TrackedDevice& a) { return a.device_id == i; });
-            if (it != tracked_devices_.end()) {
-                tracked_devices_.erase(it);
-            }
-        }
-    }
-
     switch (this->DisplayMode()) {
         case Overlay_DisplayMode_Always:
         {
@@ -1027,6 +972,81 @@ auto ControllerOverlay::SetFrameTime(float refresh_rate) -> void
     refresh_rate_ = refresh_rate;
 
     this->Reset();
+}
+
+auto ControllerOverlay::UpdateBatteryPercentageForDeviceById(uint32_t device_id) -> void
+{
+    auto it = std::find_if(tracked_devices_.begin(), tracked_devices_.end(), [device_id](const TrackedDevice& a) { return a.device_id == device_id; });
+    if (it != tracked_devices_.end()) {
+        auto c_properties = VrTrackedDeviceProperties::FromDeviceIndex(device_id);
+        int32_t type = c_properties.GetInt32(vr::Prop_DeviceClass_Int32);
+
+        std::string name = { "-" };
+
+        if (type == vr::TrackedDeviceClass_HMD) {
+            name = "Headset";
+        }
+
+        else if (type == vr::TrackedDeviceClass_Controller) {
+            int32_t type = c_properties.GetInt32(vr::Prop_ControllerRoleHint_Int32);
+            name = type == vr::TrackedControllerRole_LeftHand ? "Left Controller" : "Right Controller";
+        }
+
+        else if (type == vr::TrackedDeviceClass_GenericTracker) {
+            std::string type = c_properties.GetString(vr::Prop_ControllerType_String);
+            name = TrackerPropStringToString(type);
+        }
+
+        if (c_properties.GetBool(vr::Prop_DeviceProvidesBatteryStatus_Bool)) {
+            it->battery_percentage = c_properties.GetFloat(vr::Prop_DeviceBatteryPercentage_Float);
+        }
+        else {
+            tracked_devices_.erase(it);
+        }
+    }
+}
+
+auto ControllerOverlay::AddMonitoredDeviceById(uint32_t device_id) -> void
+{
+    auto it = std::find_if(tracked_devices_.begin(), tracked_devices_.end(), [device_id](const TrackedDevice& a) { return a.device_id == device_id; });
+    
+    auto c_properties = VrTrackedDeviceProperties::FromDeviceIndex(device_id);
+    if (it == tracked_devices_.end() && c_properties.GetBool(vr::Prop_DeviceProvidesBatteryStatus_Bool)) {
+        int32_t type = c_properties.GetInt32(vr::Prop_DeviceClass_Int32);
+
+        std::string name = { "-" };
+
+        if (type == vr::TrackedDeviceClass_HMD) {
+            name = "Headset";
+        }
+
+        else if (type == vr::TrackedDeviceClass_Controller) {
+            int32_t type = c_properties.GetInt32(vr::Prop_ControllerRoleHint_Int32);
+            name = type == vr::TrackedControllerRole_LeftHand ? "Left Controller" : "Right Controller";
+        }
+
+        else if (type == vr::TrackedDeviceClass_GenericTracker) {
+            std::string type = c_properties.GetString(vr::Prop_ControllerType_String);
+            name = TrackerPropStringToString(type);
+        }
+
+        TrackedDevice device =
+        {
+            .device_id = device_id,
+            .device_label = name,
+            .battery_percentage = -1.0f
+        };
+
+        tracked_devices_.push_back(device);
+    }
+}
+
+auto ControllerOverlay::RemoveMonitoredDeviceById(uint32_t device_id) -> void
+{
+    auto it = std::find_if(tracked_devices_.begin(), tracked_devices_.end(), [device_id](const TrackedDevice& a) { return a.device_id == device_id; });
+    if (it != tracked_devices_.end()) {
+        tracked_devices_.erase(it);
+    }
 }
 
 auto ControllerOverlay::UpdateDeviceTransform() -> void
