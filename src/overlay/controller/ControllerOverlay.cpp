@@ -1010,35 +1010,37 @@ auto ControllerOverlay::AddMonitoredDeviceById(uint32_t device_id) -> void
 {
     auto it = std::find_if(tracked_devices_.begin(), tracked_devices_.end(), [device_id](const TrackedDevice& a) { return a.device_id == device_id; });
     
-    auto c_properties = VrTrackedDeviceProperties::FromDeviceIndex(device_id);
-    if (it == tracked_devices_.end() && c_properties.GetBool(vr::Prop_DeviceProvidesBatteryStatus_Bool)) {
-        int32_t type = c_properties.GetInt32(vr::Prop_DeviceClass_Int32);
+    try {
+        auto c_properties = VrTrackedDeviceProperties::FromDeviceIndex(device_id);
+        if (it == tracked_devices_.end() && c_properties.GetBool(vr::Prop_DeviceProvidesBatteryStatus_Bool)) {
+            int32_t type = c_properties.GetInt32(vr::Prop_DeviceClass_Int32);
 
-        std::string name = { "-" };
+            std::string name = { "-" };
 
-        if (type == vr::TrackedDeviceClass_HMD) {
-            name = "Headset";
+            if (type == vr::TrackedDeviceClass_HMD) {
+                name = "Headset";
+            }
+
+            else if (type == vr::TrackedDeviceClass_Controller) {
+                int32_t type = c_properties.GetInt32(vr::Prop_ControllerRoleHint_Int32);
+                name = type == vr::TrackedControllerRole_LeftHand ? "Left Controller" : "Right Controller";
+            }
+
+            else if (type == vr::TrackedDeviceClass_GenericTracker) {
+                std::string type = c_properties.GetString(vr::Prop_ControllerType_String);
+                name = TrackerPropStringToString(type);
+            }
+
+            TrackedDevice device =
+            {
+                .device_id = device_id,
+                .device_label = name,
+                .battery_percentage = c_properties.GetFloat(vr::Prop_DeviceBatteryPercentage_Float)
+            };
+
+            tracked_devices_.push_back(device);
         }
-
-        else if (type == vr::TrackedDeviceClass_Controller) {
-            int32_t type = c_properties.GetInt32(vr::Prop_ControllerRoleHint_Int32);
-            name = type == vr::TrackedControllerRole_LeftHand ? "Left Controller" : "Right Controller";
-        }
-
-        else if (type == vr::TrackedDeviceClass_GenericTracker) {
-            std::string type = c_properties.GetString(vr::Prop_ControllerType_String);
-            name = TrackerPropStringToString(type);
-        }
-
-        TrackedDevice device =
-        {
-            .device_id = device_id,
-            .device_label = name,
-            .battery_percentage = -1.0f
-        };
-
-        tracked_devices_.push_back(device);
-    }
+    } catch (...) { }
 }
 
 auto ControllerOverlay::RemoveMonitoredDeviceById(uint32_t device_id) -> void
