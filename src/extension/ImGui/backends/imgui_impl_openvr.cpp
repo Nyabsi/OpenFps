@@ -38,6 +38,7 @@ struct ImGui_ImplOpenVR_Data {
     uint64_t time;
     vr::HmdVector2_t mouse_scale;
     bool laser_hit_dirty;
+    vr::TrackedDevicePose_t poses[vr::k_unMaxTrackedDeviceCount];
     ImGui_ImplOpenVR_Data() { memset((void*)this, 0, sizeof(*this)); }
 };
 
@@ -248,10 +249,8 @@ bool ImGui_ImplOpenVR_ProcessLaserInput(vr::ETrackedControllerRole role)
     if (controller == vr::k_unTrackedDeviceIndexInvalid)
         return false;
 
-    vr::TrackedDevicePose_t poses[vr::k_unMaxTrackedDeviceCount] = {};
-    vr::VRSystem()->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseSeated, 0.0f, poses, vr::k_unMaxTrackedDeviceCount);
-
-    const vr::TrackedDevicePose_t& pose = poses[controller];
+    vr::VRSystem()->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseSeated, 0.0f, bd->poses, vr::k_unMaxTrackedDeviceCount);
+    const vr::TrackedDevicePose_t& pose = bd->poses[controller];
     if (!pose.bPoseIsValid)
         return false;
 
@@ -260,7 +259,7 @@ bool ImGui_ImplOpenVR_ProcessLaserInput(vr::ETrackedControllerRole role)
 
     vr::HmdMatrix34_t finalMatrix = pose.mDeviceToAbsoluteTracking;
 
-    char renderModelName[vr::k_unMaxPropertyStringSize] = {};
+    static char renderModelName[vr::k_unMaxPropertyStringSize] = {};
     vr::VRSystem()->GetStringTrackedDeviceProperty(
         controller,
         vr::Prop_RenderModelName_String,
@@ -271,7 +270,7 @@ bool ImGui_ImplOpenVR_ProcessLaserInput(vr::ETrackedControllerRole role)
     vr::RenderModel_ControllerMode_State_t controllerModeState = {};
     vr::RenderModel_ComponentState_t componentState = {};
 
-    if (vr::VRRenderModels()->GetComponentState(renderModelName, "grip", &controllerState, &controllerModeState, &componentState)) {
+    if (vr::VRRenderModels()->GetComponentState(renderModelName, "tip", &controllerState, &controllerModeState, &componentState)) {
         vr::HmdMatrix34_t result = {};
 
         for (int i = 0; i < 3; i++)
@@ -298,11 +297,34 @@ bool ImGui_ImplOpenVR_ProcessLaserInput(vr::ETrackedControllerRole role)
         finalMatrix.m[2][3]
     };
 
-    vr::HmdVector3_t direction = {
+    vr::HmdVector3_t forward = {
         -finalMatrix.m[0][2],
         -finalMatrix.m[1][2],
         -finalMatrix.m[2][2]
     };
+
+    vr::HmdVector3_t upward = {
+         finalMatrix.m[0][1],
+         finalMatrix.m[1][1],
+         finalMatrix.m[2][1]
+    };
+
+    constexpr float tilt_offset = 60.0f * (3.14159265358979323846f / 180.0f);
+    vr::HmdVector3_t direction = {
+        forward.v[0] * cosf(tilt_offset) - upward.v[0] * sinf(tilt_offset),
+        forward.v[1] * cosf(tilt_offset) - upward.v[1] * sinf(tilt_offset),
+        forward.v[2] * cosf(tilt_offset) - upward.v[2] * sinf(tilt_offset)
+    };
+
+    float len = sqrtf(direction.v[0] * direction.v[0] + direction.v[1] * direction.v[1] + direction.v[2] * direction.v[2]);
+    direction.v[0] /= len;
+    direction.v[1] /= len;
+    direction.v[2] /= len;
+
+    constexpr float tip_offset = 0.05f;
+    origin.v[0] += direction.v[0] * tip_offset;
+    origin.v[1] += direction.v[1] * tip_offset;
+    origin.v[2] += direction.v[2] * tip_offset;
 
     vr::VROverlayIntersectionParams_t params = {};
     params.eOrigin = vr::TrackingUniverseSeated;
