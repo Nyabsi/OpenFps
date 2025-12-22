@@ -6,8 +6,8 @@
 ;--------------------------------
 ; General Configuration
 
-!define APP_VERSION "1.4.3"
-!define APP_VERSION_META "1.4.0.3"
+!define APP_VERSION "1.4.4"
+!define APP_VERSION_META "1.4.0.4"
 !define APP_NAME "OpenFps"
 
 !define INSTALL_DIR "$PROGRAMFILES64\${APP_NAME}"
