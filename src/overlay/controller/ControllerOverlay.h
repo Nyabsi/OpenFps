@@ -93,13 +93,11 @@ private:
 
     uint32_t total_dropped_frames_;
     uint32_t total_predicted_frames_;
-    uint32_t total_missed_frames_;
     uint32_t total_throttled_frames_;
-    uint32_t total_frames_;
     float cpu_frame_time_ms_;
     float gpu_frame_time_ms_;
-	float cpu_frame_time_avg_;
-	float gpu_frame_time_avg_;
+	float cpu_frame_time_sample_;
+	float gpu_frame_time_sample_;
     float current_fps_;
     uint8_t frame_index_;   // no HMD is >=255 (Refresh Rate) this is an safe assumption for sake of performance.
     uint32_t bottleneck_flags_;

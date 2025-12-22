@@ -40,13 +40,11 @@ ControllerOverlay::ControllerOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::
     ss_scale_ = {};
     total_dropped_frames_ = {};
     total_predicted_frames_ = {};
-    total_missed_frames_ = {};
     total_throttled_frames_ = {};
-    total_frames_ = {};
     cpu_frame_time_ms_ = {};
     gpu_frame_time_ms_ = {};
-	cpu_frame_time_avg_ = {};
-	gpu_frame_time_avg_ = {};
+	cpu_frame_time_sample_ = {};
+	gpu_frame_time_sample_ = {};
     current_fps_ = {};
     frame_index_ = {};
     bottleneck_flags_ = {};
@@ -168,7 +166,7 @@ auto ControllerOverlay::Render() -> bool
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("CPU Frametime");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.1f ms", cpu_frame_time_avg_);
+                ImGui::Text("%.1f ms", cpu_frame_time_sample_);
                 ImGui::EndTable();
                 ImGui::Unindent(10.0f);
             }
@@ -245,7 +243,7 @@ auto ControllerOverlay::Render() -> bool
                 ImGui::TableSetColumnIndex(0);
                 ImGui::Text("GPU Frametime");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.1f ms", gpu_frame_time_avg_);
+                ImGui::Text("%.1f ms", gpu_frame_time_sample_);
                 ImGui::Unindent(10.0f);
                 ImGui::EndTable();
             }
@@ -329,15 +327,15 @@ auto ControllerOverlay::Render() -> bool
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("Missed");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::TextColored(Color_Red, "%d Frames", total_missed_frames_);
-
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
                 ImGui::Text("Dropped");
                 ImGui::TableSetColumnIndex(1);
                 ImGui::TextColored(Color_Red, "%d Frames", total_dropped_frames_);
+
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Predicted");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextColored(Color_Red, "%d Frames", total_predicted_frames_);
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
@@ -814,11 +812,9 @@ auto ControllerOverlay::Update() -> void
         info_gpu.frametime = gpu_frame_time_ms_;
         gpu_frame_times_.data()[frame_index_] = info_gpu;
 
-        total_missed_frames_ += timings.m_nNumMisPresented;
         total_predicted_frames_ += predicted_frames;
         total_dropped_frames_ += timings.m_nNumDroppedFrames;
         total_throttled_frames_ += throttled_frames;
-        total_frames_ += timings.m_nNumFramePresents;
 
         if (timings.m_flTransferLatencyMs > 0.0f) {
             wireless_latency_ = timings.m_flTransferLatencyMs;
@@ -884,8 +880,8 @@ auto ControllerOverlay::Update() -> void
 
     static double last_time = 0.0;
     if (ImGui::GetTime() - last_time >= 0.5f) {
-		cpu_frame_time_avg_ = cpu_frame_time_ms_;
-		gpu_frame_time_avg_ = gpu_frame_time_ms_;
+		cpu_frame_time_sample_ = cpu_frame_time_ms_;
+		gpu_frame_time_sample_ = gpu_frame_time_ms_;
         task_monitor_.Update();
         float effective_frametime_ms = std::max(
             frame_time_,
@@ -959,11 +955,9 @@ auto ControllerOverlay::Reset() -> void
 
     frame_index_ = 0;
 
-    total_missed_frames_ = 0;
     total_predicted_frames_ = 0;
     total_dropped_frames_ = 0;
     total_throttled_frames_ = 0;
-    total_frames_ = 0;
 }
 
 auto ControllerOverlay::SetFrameTime(float refresh_rate) -> void
