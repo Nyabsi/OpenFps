@@ -43,8 +43,8 @@ extern "C" __declspec(dllexport) unsigned long AmdPowerXpressRequestHighPerforma
 
 VulkanRenderer* g_vulkanRenderer = new VulkanRenderer();
 
-static ControllerOverlay* g_processInformation;
-static DashboardOverlay* g_ProcessList;
+std::unique_ptr<ControllerOverlay> g_processInformation;
+std::unique_ptr<DashboardOverlay>  g_ProcessList;
 
 static uint64_t g_last_frame_time = SDL_GetTicksNS();
 static float g_hmd_refresh_rate = 24.0f;
@@ -58,7 +58,7 @@ static auto UpdateApplicationRefreshRate() -> void
         g_hmd_refresh_rate = hmd_properties.GetFloat(vr::Prop_DisplayFrequency_Float);
         g_processInformation->SetFrameTime(g_hmd_refresh_rate);
     }
-    catch (std::exception& ex) {
+    catch (const std::exception& ex) {
 #ifdef _WIN32
         char error_message[512] = {};
         snprintf(error_message, 512, "Failed to update HMD Refresh Rate\nReason: %s\r\n", ex.what());
@@ -80,60 +80,39 @@ int main(
 
     try {
         OpenVRInit(vr::VRApplication_Background);
-    }
-    catch (std::exception& ex) {
-#ifdef _WIN32
-        char error_message[512] = {};
-        snprintf(error_message, 512, "Failed to initialize OpenVR.\nReason: %s\r\n", ex.what());
-        MessageBoxA(NULL, error_message, APP_NAME, MB_OK);
-#endif
-        printf("%s\n\n", ex.what());
-        return EXIT_FAILURE;
-    }
 
+        if (!OpenVRManifestInstalled(APP_KEY)) {
+            OpenVRManifestInstall();
+        }
 
-    try {
+        if (!vr::VRApplications()->GetApplicationAutoLaunch(APP_KEY))
+        {
+            vr::VRApplications()->SetApplicationAutoLaunch(APP_KEY, false);
+            vr::VRApplications()->SetApplicationAutoLaunch(APP_KEY, true);
+        }
+
+        // TODO: this resets it each time, is this something we want to really do?
+        vr::VRSettings()->SetInt32(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_SupersampleManualOverride_Bool, true);
+        vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainR_Float, 1.0f);
+        vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainG_Float, 1.0f);
+        vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainB_Float, 1.0f);
+
         g_vulkanRenderer->Initialize();
     }
-    catch (std::exception& ex) {
+    catch (const std::exception& ex) {
 #ifdef _WIN32
         char error_message[512] = {};
-        snprintf(error_message, 512, "Failed to initialize Vulkan.\nReason: %s\r\n", ex.what());
+        snprintf(error_message, 512, "Failed to initialize OpenFps.\nReason: %s\r\n", ex.what());
         MessageBoxA(NULL, error_message, APP_NAME, MB_OK);
 #endif
         printf("%s\n\n", ex.what());
         return EXIT_FAILURE;
     }
 
-    g_processInformation = new ControllerOverlay();
-    g_ProcessList = new DashboardOverlay();
+    g_processInformation = std::make_unique<ControllerOverlay>();
+    g_ProcessList = std::make_unique<DashboardOverlay>();
 
     UpdateApplicationRefreshRate();
-
-    try {
-        if (!OpenVRManifestInstalled(APP_KEY)) OpenVRManifestInstall();
-    }
-    catch (std::exception& ex) {
-#ifdef _WIN32
-        char error_message[512] = {};
-        snprintf(error_message, 512, "Failed to initialize OpenVR Manifest.\nReason: %s\r\n", ex.what());
-        MessageBoxA(NULL, error_message, APP_NAME, MB_OK);
-#endif
-        printf("%s\n\n", ex.what());
-        return EXIT_FAILURE;
-    }
-
-    if (!vr::VRApplications()->GetApplicationAutoLaunch(APP_KEY))
-    {
-        vr::VRApplications()->SetApplicationAutoLaunch(APP_KEY, false);
-        vr::VRApplications()->SetApplicationAutoLaunch(APP_KEY, true);
-    }
-
-    // allow our application to override some settings.
-    vr::VRSettings()->SetInt32(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_SupersampleManualOverride_Bool, true);
-    vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainR_Float, 1.0f);
-    vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainG_Float, 1.0f);
-    vr::VRSettings()->SetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainB_Float, 1.0f);
 
     for (uint32_t i = 0; i < vr::k_unMaxTrackedDeviceCount; i++) {
         if (i == vr::k_unTrackedDeviceIndex_Hmd)
@@ -195,10 +174,7 @@ int main(
             const uint32_t timeout_ms = static_cast<uint32_t>((target_time_ns - frame_duration_ns) / 1'000'000);
             vr::VROverlay()->WaitFrameSync(timeout_ms);
 
-            const uint64_t after_sync_ns = SDL_GetTicksNS();
-            const uint64_t remaining_ns =
-                target_time_ns - (after_sync_ns - g_last_frame_time);
-
+            const uint64_t remaining_ns = target_time_ns - (SDL_GetTicksNS() - g_last_frame_time);
             if (remaining_ns > 0)
                 SDL_DelayPrecise(remaining_ns);
         }

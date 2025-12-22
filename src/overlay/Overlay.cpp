@@ -26,7 +26,7 @@ Overlay::Overlay(const std::string& appKey, const std::string& name, vr::VROverl
         snprintf(overlay_key, 100, "%s-%d", appKey.c_str(), std::rand() % 1024);
         this->Create(type, overlay_key, name.c_str());
     }
-    catch (std::exception& ex) {
+    catch (const std::exception& ex) {
 #ifdef _WIN32
         char error_message[512] = {};
         snprintf(error_message, 512, "Failed to create overlay.\nReason: %s\r\n", ex.what());

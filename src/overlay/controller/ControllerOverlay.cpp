@@ -64,7 +64,7 @@ ControllerOverlay::ControllerOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::
         this->EnableFlag(vr::VROverlayFlags_SendVRDiscreteScrollEvents);
         this->EnableFlag(vr::VROverlayFlags_EnableClickStabilization);
     }
-    catch (std::exception& ex) {
+    catch (const std::exception& ex) {
 #ifdef _WIN32
         char error_message[512] = {};
         snprintf(error_message, 512, "Failed to initialize the overlay.\nReason: %s\r\n", ex.what());

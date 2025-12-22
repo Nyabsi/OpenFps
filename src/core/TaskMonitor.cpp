@@ -52,27 +52,27 @@ auto TaskMonitor::Initialize() -> void
         if (result != ERROR_SUCCESS)
             throw std::runtime_error("Failed to register counter (Dedicated Usage) through PdhAddCounterA");
 
-        PdhAddEnglishCounterA(pdh_query_, "\\GPU Process Memory(*)\\Shared Usage", 0, &pdh_shared_vram_counter_);
+        result = PdhAddEnglishCounterA(pdh_query_, "\\GPU Process Memory(*)\\Shared Usage", 0, &pdh_shared_vram_counter_);
         if (result != ERROR_SUCCESS)
             throw std::runtime_error("Failed to register counter (Shared Usage) through PdhAddCounterA");
 
-        PdhAddEnglishCounterA(pdh_query_, "\\GPU Engine(*)\\Utilization Percentage", 0, &pdh_gpu_utilization_counter_);
+        result = PdhAddEnglishCounterA(pdh_query_, "\\GPU Engine(*)\\Utilization Percentage", 0, &pdh_gpu_utilization_counter_);
         if (result != ERROR_SUCCESS)
             throw std::runtime_error("Failed to register counter (Utilization Percentage) through PdhAddCounterA");
 
-        PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\% User Time", 0, &pdh_user_process_time_);
+        result = PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\% User Time", 0, &pdh_user_process_time_);
         if (result != ERROR_SUCCESS)
             throw std::runtime_error("Failed to register counter (User Time) through PdhAddCounterA");
 
-        PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\% Privileged Time", 0, &pdh_kernel_process_time_);
+        result = PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\% Privileged Time", 0, &pdh_kernel_process_time_);
         if (result != ERROR_SUCCESS)
             throw std::runtime_error("Failed to register counter (Privileged Time) through PdhAddCounterA");
 
-        PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\% Processor Time", 0, &pdh_total_process_time_);
+        result = PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\% Processor Time", 0, &pdh_total_process_time_);
         if (result != ERROR_SUCCESS)
             throw std::runtime_error("Failed to register counter (Processor Time) through PdhAddCounterA");
 
-        PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\Working Set", 0, &pdh_process_memory_);
+        result = PdhAddEnglishCounterA(pdh_query_, "\\Process(*)\\Working Set", 0, &pdh_process_memory_);
         if (result != ERROR_SUCCESS)
             throw std::runtime_error("Failed to register counter (Processor Time) through PdhAddCounterA");
     }
