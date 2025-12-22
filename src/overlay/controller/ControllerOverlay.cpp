@@ -934,7 +934,8 @@ auto ControllerOverlay::Update() -> void
 
 auto ControllerOverlay::Destroy() -> void
 {
-    free(colour_mask_);
+    delete[] colour_mask_;
+    colour_mask_ = nullptr;
 
     task_monitor_.Destroy();
 
