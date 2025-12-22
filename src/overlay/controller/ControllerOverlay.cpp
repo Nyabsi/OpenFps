@@ -89,10 +89,7 @@ ControllerOverlay::ControllerOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::
     color_temp_ = settings_.ColorTemperature();
     color_brightness_ = settings_.ColorBrightness();
 
-    colour_mask_ = (float*)malloc(sizeof(float) * 3);
-    for (int i = 0; i < 3; i++) {
-        colour_mask_[i] = 0.0f;
-    }
+    colour_mask_ = new float[3] { 0.0f, 0.0f, 0.0f };
 
     ss_scale_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_SupersampleScale_Float) * 100;
     color_channel_red_ = vr::VRSettings()->GetFloat(vr::k_pch_SteamVR_Section, vr::k_pch_SteamVR_HmdDisplayColorGainR_Float);
