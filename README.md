@@ -4,36 +4,28 @@ OpenFps is an performance monitoring and utility tool for OpenVR compatible runt
 
 ## Features
 
-- *Per-process monitoring*
-	- This means you will see **exactly** how much resources your game/application is consuming.
-- CPU & GPU frame time metrics
-- Real-time FPS display
-- Reprojected & Dropped frame counter
-- Resource monitoring (Per-process)
-	- CPU usage
-	- GPU usage
-	- Dedicated & Shared VRAM usage
-	- Video Encoding Usage
- - Process List
-	- See which applications are using your computer resources
-- Display device battery percentages
-	- You should assign the appropriate tracker roles for your device to identify your trackers
-- Accessibility
-	- Select between Left/Right hand for displaying the overlay
-	- Adjust the scale of the overlay to match your preference
-	- Change the mounting position of the overlay (Above, Wrist, Below)
-- SteamVR Resolution Adjustment
-	- Adjust your SteamVR resolution straight from OpenFps to reduce friction
-- Display Color Adjustment
-	- Apply colors filters, brightness control directly from OpenFps universally
- 
-> [!WARNING]
-> Display Color Adjustment is only available for native SteamVR headsets.
+- **Per-Process Monitoring**  
+  - Provides detailed insight into resource consumption of individual applications
+  - CPU and GPU frame time metrics
+  - Real-time FPS display
+  - Reprojected and dropped frame counters
+- **Resource Monitoring (Per-Process)**  
+  - CPU and GPU usage
+  - Dedicated and shared VRAM usage
+  - Video encoding utilization
+- **Process List**
+  - View applications currently consuming system resources
+- **Display Device Battery Levels**
+  - Assign tracker roles to identify connected devices
+- **Accessibility**
+  - Select overlay for left or right hand
+  - Adjust overlay scale and mounting position (Above, Wrist, Below)
+- **SteamVR Resolution Adjustment**
+  - Modify SteamVR resolution directly within OpenFps
+- **Display Color Adjustment**  
+  - Apply color filters and brightness controls universally via OpenFps
 
 ## Usage
-
-> [!IMPORTANT]
-> OpenFps is still alpha-stage software, it may have bugs and quirks. If you encounter any issues or have an improvement suggestion make an issue.
 
 Head over to [Downloads](https://github.com/Nyabsi/OpenFps/releases) to install the latest version of OpenFps.
 
