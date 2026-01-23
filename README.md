@@ -27,9 +27,9 @@ OpenVR Metrics is an performance monitoring and utility tool for OpenVR compatib
 
 ## Usage
 
-Head over to [Downloads](https://github.com/Nyabsi/OpenVR Metrics/releases) to install the latest version of OpenVR Metrics.
+Head over to [Downloads](https://github.com/Nyabsi/openvr-metrics/releases) to install the latest version of OpenVR Metrics.
 
-To be able to read the graphs efficiently, please look at [Reading the Graph](https://github.com/Nyabsi/OpenVR Metrics/wiki/Reading-the-Graph) to understand what the colours imply.
+To be able to read the graphs efficiently, please look at [Reading the Graph](https://github.com/Nyabsi/openvr-metrics/wiki/Reading-the-Graph) to understand what the colours imply.
 
 ## Building
 
