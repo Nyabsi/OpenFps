@@ -11,8 +11,8 @@
 
 #include <config.hpp>
 
-#define OVERLAY_KEY     "Nyabsi.OpenFps"
-#define OVERLAY_NAME    "OpenFps Dashboard"
+#define OVERLAY_KEY     "steam.overlay.4361360"
+#define OVERLAY_NAME    "Dashboard Overlay"
 #define OVERLAY_WIDTH   1600
 #define OVERLAY_HEIGHT  900
 
@@ -77,7 +77,7 @@ auto DashboardOverlay::Render()-> bool
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Once);
     ImGui::SetNextWindowSize(pos, ImGuiCond_Always);
 
-    ImGui::Begin("OpenFps", nullptr,
+    ImGui::Begin("OpenVR Metrics", nullptr,
         ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoTitleBar |
         ImGuiWindowFlags_NoMove);

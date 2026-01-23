@@ -13,8 +13,8 @@
 
 #include <extension/OpenVR/VrUtils.h>
 
-#define OVERLAY_KEY     "Nyabsi.OpenFps"
-#define OVERLAY_NAME    "OpenFps Hand"
+#define OVERLAY_KEY     "steam.overlay.4361360"
+#define OVERLAY_NAME    "Glance Overlay"
 #define OVERLAY_WIDTH   420
 #define OVERLAY_HEIGHT  220
 
@@ -68,7 +68,7 @@ ControllerOverlay::ControllerOverlay() : Overlay(OVERLAY_KEY, OVERLAY_NAME, vr::
 #ifdef _WIN32
         char error_message[512] = {};
         snprintf(error_message, 512, "Failed to initialize the overlay.\nReason: %s\r\n", ex.what());
-        MessageBoxA(NULL, error_message, "OpenFps", MB_OK);
+        MessageBoxA(NULL, error_message, "Error!", MB_OK);
 #endif
         printf("%s\n\n", ex.what());
         std::exit(EXIT_FAILURE);
@@ -121,7 +121,7 @@ auto ControllerOverlay::Render() -> bool
     ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Once);
     ImGui::SetNextWindowSize(pos, ImGuiCond_Always);
 
-    ImGui::Begin("OpenFps", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove);
+    ImGui::Begin("OpenVR Metrics", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove);
 
     const ImVec2 mousePos = ImGui::GetIO().MousePos;
     if (!io.WantTextInput && (

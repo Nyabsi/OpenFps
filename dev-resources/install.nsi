@@ -8,7 +8,7 @@
 
 !define APP_VERSION "1.4.4"
 !define APP_VERSION_META "1.4.0.4"
-!define APP_NAME "OpenFps"
+!define APP_NAME "OpenVR Metrics"
 
 !define INSTALL_DIR "$PROGRAMFILES64\${APP_NAME}"
 !define LICENSE_FILE "../bin/LICENSE.txt"
@@ -24,7 +24,7 @@ ShowInstDetails show
 VIProductVersion "${APP_VERSION_META}"
 VIAddVersionKey /LANG=1033 "ProductName" "${APP_NAME}"
 VIAddVersionKey /LANG=1033 "FileDescription" "${APP_NAME} Installer"
-VIAddVersionKey /LANG=1033 "LegalCopyright" "Copyright © 2025 Nyabsi"
+VIAddVersionKey /LANG=1033 "LegalCopyright" "Copyright (c) 2025 Nyabsi"
 VIAddVersionKey /LANG=1033 "FileVersion" "${APP_VERSION_META}"
 VIAddVersionKey /LANG=1033 "ProductVersion" "${APP_VERSION}"
 
@@ -102,7 +102,7 @@ Section "Install" SecInstall
 
     SetOutPath "$INSTDIR"
 
-    File "${FILES_DIR}\OpenFps.exe"
+    File "${FILES_DIR}\OpenVRMetrics.exe"
     File "${FILES_DIR}\openvr_api.dll"
     File "${FILES_DIR}\LICENSE.txt"
     File "${FILES_DIR}\manifest.vrmanifest"
@@ -115,7 +115,7 @@ Section "Install" SecInstall
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "DisplayName" "${APP_NAME}"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
 
-    CreateShortCut "$SMPROGRAMS\${APP_NAME}.lnk" "$INSTDIR\OpenFps.exe"
+    CreateShortCut "$SMPROGRAMS\${APP_NAME}.lnk" "$INSTDIR\OpenVRMetrics.exe"
 
 SectionEnd
 
@@ -126,7 +126,7 @@ Section "Uninstall"
 
     SetOutPath "$INSTDIR"
 
-    Delete "$INSTDIR\OpenFps.exe"
+    Delete "$INSTDIR\OpenVRMetrics.exe"
     Delete "$INSTDIR\openvr_api.dll"
     Delete "$INSTDIR\LICENSE.txt"
     Delete "$INSTDIR\manifest.vrmanifest"

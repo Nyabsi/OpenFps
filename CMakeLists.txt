@@ -7,7 +7,7 @@ endif()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
-project(openvr_openfps)
+project(openvr_metrics)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -39,7 +39,7 @@ add_subdirectory(${Json_ROOT} EXCLUDE_FROM_ALL)
 
 message(STATUS "ENABLE_VULKAN_VALIDATION = ${ENABLE_VULKAN_VALIDATION}")
 
-add_executable(openfps
+add_executable(metrics_overlay
     "src/Main.cpp"
     "src/core/Settings.cpp"
     "src/core/TaskMonitor.cpp"
@@ -49,16 +49,16 @@ add_executable(openfps
     "src/renderer/VulkanRenderer.cpp"
 )
 
-target_include_directories(openfps PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(metrics_overlay PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Windows executable icon
 if (WIN32)
-    target_sources(openfps PRIVATE "resources/winicon.rc")
+    target_sources(metrics_overlay PRIVATE "resources/winicon.rc")
 endif()
 
-target_compile_features(openfps PUBLIC cxx_std_23)
+target_compile_features(metrics_overlay PUBLIC cxx_std_23)
 
-target_link_libraries(openfps
+target_link_libraries(metrics_overlay
     PRIVATE
         OpenVR::API
         ImGui
@@ -66,7 +66,7 @@ target_link_libraries(openfps
         nlohmann_json::nlohmann_json
 )
 
-target_compile_options(openfps PRIVATE
+target_compile_options(metrics_overlay PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX>
     $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall -Wextra -Wpedantic -Werror>
 )
@@ -77,20 +77,20 @@ endif()
 
 set(CUSTOM_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/bin")
 
-add_custom_target(openfps_resources)
+add_custom_target(metrics_overlay_resources)
 
 add_custom_command(
-    TARGET openfps_resources POST_BUILD
+    TARGET metrics_overlay_resources POST_BUILD
     COMMENT "Copying Resources"
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/resources ${CUSTOM_OUTPUT_DIR}
 )
 
-add_dependencies(openfps openfps_resources)
+add_dependencies(metrics_overlay metrics_overlay_resources)
 
 add_custom_command(
-    TARGET openfps POST_BUILD
+    TARGET metrics_overlay POST_BUILD
     COMMENT "Copying Executable and DLLs"
-    COMMAND ${CMAKE_COMMAND} -E copy -t ${CUSTOM_OUTPUT_DIR} $<TARGET_FILE:openfps>
-    COMMAND ${CMAKE_COMMAND} -E copy -t ${CUSTOM_OUTPUT_DIR} $<TARGET_RUNTIME_DLLS:openfps>
+    COMMAND ${CMAKE_COMMAND} -E copy -t ${CUSTOM_OUTPUT_DIR} $<TARGET_FILE:metrics_overlay>
+    COMMAND ${CMAKE_COMMAND} -E copy -t ${CUSTOM_OUTPUT_DIR} $<TARGET_RUNTIME_DLLS:metrics_overlay>
     COMMAND_EXPAND_LISTS
 )

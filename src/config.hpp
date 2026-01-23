@@ -2,5 +2,5 @@
 
 // Global definitions
 
-#define APP_KEY     "Nyabsi.OpenFps"
-#define APP_NAME    "OpenFps"
+#define APP_KEY     "steam.overlay.4361360"
+#define APP_NAME    "OpenVR Metrics"

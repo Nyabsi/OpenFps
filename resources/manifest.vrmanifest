@@ -2,15 +2,14 @@
     "source": "builtin",
     "applications": [
         {
-            "app_key": "Nyabsi.OpenFps",
+            "app_key": "steam.overlay.4361360",
             "launch_type": "binary",
-            "binary_path_windows": "openfps.exe",
+            "binary_path_windows": "metrics_overlay.exe",
             "is_dashboard_overlay": true,
-
             "strings": {
                 "en_us": {
-                    "name": "OpenFps",
-                    "description": "A real-time performance & device status monitor for SteamVR"
+                    "name": "OpenVR Metrics",
+                    "description": " OpenVR Metrics is a real-time VR profiling and monitoring tool for developers and users, providing frame timing analysis, device metrics, and performance insight."
                 }
             }
         }

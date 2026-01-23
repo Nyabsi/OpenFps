@@ -1,6 +1,6 @@
-# <img src="https://github.com/Nyabsi/OpenFps/blob/master/resources/icon.png" height="24" width="24"> OpenFps
+# <img src="https://github.com/Nyabsi/openvr-metrics/blob/master/resources/icon.png" height="24" width="24"> OpenVR Metrics
 
-OpenFps is an performance monitoring and utility tool for OpenVR compatible runtimes for aiding to identify performance issues.
+OpenVR Metrics is an performance monitoring and utility tool for OpenVR compatible runtimes for aiding to identify performance issues.
 
 ## Features
 
@@ -21,15 +21,15 @@ OpenFps is an performance monitoring and utility tool for OpenVR compatible runt
   - Select overlay for left or right hand
   - Adjust overlay scale and mounting position (Above, Wrist, Below)
 - **SteamVR Resolution Adjustment**
-  - Modify SteamVR resolution directly within OpenFps
+  - Modify SteamVR resolution directly within OpenVR Metrics
 - **Display Color Adjustment**  
-  - Apply color filters and brightness controls universally via OpenFps
+  - Apply color filters and brightness controls universally via OpenVR Metrics
 
 ## Usage
 
-Head over to [Downloads](https://github.com/Nyabsi/OpenFps/releases) to install the latest version of OpenFps.
+Head over to [Downloads](https://github.com/Nyabsi/OpenVR Metrics/releases) to install the latest version of OpenVR Metrics.
 
-To be able to read the graphs efficiently, please look at [Reading the Graph](https://github.com/Nyabsi/OpenFps/wiki/Reading-the-Graph) to understand what the colours imply.
+To be able to read the graphs efficiently, please look at [Reading the Graph](https://github.com/Nyabsi/OpenVR Metrics/wiki/Reading-the-Graph) to understand what the colours imply.
 
 ## Building
 
